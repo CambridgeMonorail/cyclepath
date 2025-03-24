@@ -1,81 +1,80 @@
 # Cyclepath
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Cyclepath is a humorous, high-speed 3D bike racing game set in a vibrant recreation of Mill Road, Cambridge. Players navigate urban obstacles, collect power-ups, and race against time to reach work on time. The game blends playful mechanics with authentic local details for a fun and engaging experience.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+## Project Overview
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+- **Platform:** Web (desktop and mobile)
+- **Technology Stack:** React, TypeScript, Tailwind CSS, Three.js (or react-three-fiber), Nrwl Nx
+- **Target Audience:** Casual gamers, commuters, and local enthusiasts
 
-## Finish your CI setup
+## Development Phases
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/x5jP0z7hvq)
+The project is divided into several phases:
 
-## Run tasks
+1. **MVP:** Core gameplay mechanics, basic 3D scene, and UI overlay.
+2. **Alpha:** Expanded gameplay, improved visuals, and enhanced controls.
+3. **Beta:** Polished visuals, audio, and user interactions.
+4. **Release Candidate:** Finalized features, multiplayer integration, and optimizations.
+5. **Post-Release:** Content expansion, seasonal events, and ongoing maintenance.
 
-To run the dev server for your app, use:
+For detailed tasks and milestones, refer to the [Implementation Plan](./docs/implementation%20plan.md).
+
+## Features
+
+- **Core Gameplay:**
+  - Navigate obstacles like pedestrians, stray animals, and vehicles.
+  - Collect power-ups such as "Coffee Jolt" and "Umbrella Shield."
+  - Explore dynamic, curved tracks inspired by Mill Road.
+
+- **Game Modes:**
+  - Single-player campaign with progressive difficulty.
+  - Planned multiplayer modes for local and online play.
+
+- **UI/UX:**
+  - Intuitive HUD showing speed, score, and power-ups.
+  - Accessible design with responsive layouts for all devices.
+
+- **Visuals & Audio:**
+  - Vibrant, exaggerated 3D assets with local flavor.
+  - Upbeat soundtrack and playful sound effects.
+
+For a comprehensive list of features, see the [Product Requirements Document](./docs/product%20requirements.md).
+
+## Design Inspiration
+
+The game draws inspiration from the eclectic and vibrant atmosphere of Mill Road, Cambridge. Key design elements include:
+
+- Narrow, winding lanes for dynamic race tracks.
+- Mixed-use buildings and historical landmarks.
+- Bold, colorful visuals with playful animations.
+
+Learn more in the [Design Guide](./docs/design%20guide.md).
+
+## Getting Started
+
+To run the development server:
 
 ```sh
-npx nx serve cyclepath
+pnpm nx serve cyclepath
 ```
 
-To create a production bundle:
+To build the project:
 
 ```sh
-npx nx build cyclepath
+pnpm nx build cyclepath
 ```
 
-To see all available targets to run for a project, run:
+To run tests:
 
 ```sh
-npx nx show project cyclepath
+pnpm nx test cyclepath
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+## Contributing
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+We welcome contributions! Please refer to the [tasks](./docs/tasks.md) for current development priorities and guidelines.
 
-## Add new projects
+## License
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/react:app demo
-```
-
-To generate a new library, use:
-
-```sh
-npx nx g @nx/react:lib mylib
-```
-
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
-
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+This project is licensed under the MIT License.

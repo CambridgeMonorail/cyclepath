@@ -6,23 +6,23 @@
 
 ### Environment Setup
 
-- [ ] Set up the project using React and Three.js (or react‑three‑fiber) with TypeScript.
-- [ ] Configure the build system (Webpack/Vite) and ensure live reloading is working.
+- [x] Set up the project using React and Three.js (or react‑three‑fiber) with TypeScript.
+- [x] Configure the build system (Webpack/Vite) and ensure live reloading is working.
 - [ ] Implement basic error handling for game initialization and rendering issues.
 - [ ] Ensure the game canvas scales properly across different screen sizes and resolutions.
 
 ### Basic Scene & Controls
 
-- [ ] Create a simple 3D scene with a grid (or basic environment) and appropriate lighting.
-- [ ] Implement a basic camera and renderer.
-- [ ] Develop a simple player “bike” (or placeholder object) that can move forward and steer using keyboard controls.
-- [ ] Establish an animation loop that updates the scene in real time.
+- [x] Create a simple 3D scene with a grid (or basic environment) and appropriate lighting.
+- [x] Implement a basic camera and renderer.
+- [x] Develop a simple player “bike” (or placeholder object) that can move forward and steer using keyboard controls.
+- [x] Establish an animation loop that updates the scene in real time.
 
 ### Core Mechanics
 
-- [ ] Generate basic obstacles in the scene.
-- [ ] Implement simple collision detection that ends the game (e.g., show a “Game Over” message).
-- [ ] Add a very basic UI overlay (e.g., a start screen with a “Play” button and minimal instructions).
+- [x] Generate basic obstacles in the scene.
+- [x] Implement simple collision detection that ends the game (e.g., show a “Game Over” message).
+- [x] Add a very basic UI overlay (e.g., a start screen with a “Play” button and minimal instructions).
 - [ ] Write unit tests for core components (e.g., player movement logic, obstacle generation).
 - [ ] Test the game on multiple browsers for compatibility.
 
