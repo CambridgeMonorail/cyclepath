@@ -1,74 +1,59 @@
-import { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-type ObstacleProps = {
-  position: [number, number, number];
-  scale?: [number, number, number];
-  color?: string;
-};
-
-const Obstacle = ({ position, scale = [1, 1, 1], color = "#4d4d4d" }: ObstacleProps) => {
-  return (
-    <mesh position={position}>
-      <boxGeometry args={scale} />
-      <meshStandardMaterial color={color} />
-    </mesh>
-  );
+type Position = {
+  x: number;
+  z: number;
 };
 
 type ObstaclesGeneratorProps = {
-  count?: number;
-  range?: number;
-  playerPosition: { x: number, z: number };
-  onCollision?: () => void;
+  count: number;
+  range: number;
+  playerPosition: Position;
+  onCollision: () => void;
 };
 
 export const ObstaclesGenerator = ({
-  count = 10,
-  range = 20,
+  count,
+  range,
   playerPosition,
-  onCollision
+  onCollision,
 }: ObstaclesGeneratorProps) => {
-  // Create a ref to hold obstacle positions
-  const obstaclesRef = useRef<THREE.Object3D>(null);
-  const obstaclePositions = useRef<Array<[number, number, number]>>([]);
+  const obstaclesRef = useRef<THREE.Mesh[]>([]);
 
-  // Generate random obstacle positions if not already generated
-  if (obstaclePositions.current.length === 0) {
-    for (let i = 0; i < count; i++) {
-      const x = (Math.random() - 0.5) * range;
-      const z = (Math.random() - 0.5) * range;
-      obstaclePositions.current.push([x, 0.5, z]);
-    }
-  }
+  useEffect(() => {
+    // Check for collisions
+    obstaclesRef.current.forEach((obstacle) => {
+      const distance = Math.sqrt(
+        Math.pow(playerPosition.x - obstacle.position.x, 2) +
+        Math.pow(playerPosition.z - obstacle.position.z, 2)
+      );
 
-  // Check for collisions with the player
-  useFrame(() => {
-    if (onCollision) {
-      // Simple collision detection based on distance
-      const playerPos = new THREE.Vector3(playerPosition.x, 0.5, playerPosition.z);
-      const collisionThreshold = 1.2; // Adjust based on player and obstacle size
-
-      for (const position of obstaclePositions.current) {
-        const obstaclePos = new THREE.Vector3(position[0], position[1], position[2]);
-        const distance = playerPos.distanceTo(obstaclePos);
-
-        if (distance < collisionThreshold) {
-          onCollision();
-          break;
-        }
+      if (distance < 1) {
+        onCollision();
       }
-    }
+    });
+  }, [playerPosition, onCollision]);
+
+  // Generate random positions for obstacles
+  const obstacles = Array.from({ length: count }, (_, i) => {
+    const x = (Math.random() - 0.5) * range;
+    const z = (Math.random() - 0.5) * range;
+    return (
+      <mesh
+        key={i}
+        ref={(el) => {
+          if (el) obstaclesRef.current[i] = el;
+        }}
+        position={[x, 0.5, z]}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#650D89" /> {/* teal from palette */}
+      </mesh>
+    );
   });
 
-  return (
-    <group ref={obstaclesRef}>
-      {obstaclePositions.current.map((position, index) => (
-        <Obstacle key={index} position={position} />
-      ))}
-    </group>
-  );
+  return <>{obstacles}</>;
 };
 
 export default ObstaclesGenerator;

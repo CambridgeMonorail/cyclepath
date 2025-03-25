@@ -49,12 +49,6 @@ Enforce strict type safety and best practices.
 Follow Tailwind CSS and shadcn/ui guidelines for consistent design.
 
 - Apply Tailwind classes for styling.
-- Import shadcn components directly from @cyclepath/shadcnui:
-
-  ```tsx
-  import { Button } from '@cyclepath/shadcnui';
-  import { Alert } from '@cyclepath/shadcnui';
-  ```
 
 - Utilize shadcn theme variables (bg-background, text-foreground, etc.).
 
@@ -122,11 +116,7 @@ libs/                  # Shared libraries
         ├── types/    # API types and interfaces
         ├── utils/    # API utilities
         └── errors/   # Error handling
-├── shadcnui/         # UI component library
-    ├── src/
-        ├── components/# Reusable UI components
-        ├── hooks/     # Shared hooks
-        └── utils/     # UI utilities
+
 ├── shared/           # Shared utilities
     ├── src/
         ├── types/    # Shared TypeScript types

@@ -1,40 +1,41 @@
-import { useState } from 'react';
-
 type GameMenuProps = {
   onStartGame: () => void;
-  isGameOver?: boolean;
+  isGameOver: boolean;
 };
 
-export const GameMenu = ({ onStartGame, isGameOver = false }: GameMenuProps) => {
+export const GameMenu = ({ onStartGame, isGameOver }: GameMenuProps) => {
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-10 bg-black bg-opacity-50">
-      <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-        <h1 className="text-3xl font-bold mb-6">CyclePath</h1>
+    <div
+      className="absolute inset-0 flex flex-col items-center justify-center bg-dark-navy/80"
+      role="dialog"
+      aria-modal="true"
+      aria-label={isGameOver ? "Game Over Menu" : "Game Start Menu"}
+    >
+      <div className="bg-deep-purple p-8 rounded-lg shadow-lg max-w-md w-full mx-4">
+        <h1 className="font-outrun text-4xl font-bold italic mb-6 text-neon-pink text-center">
+          {isGameOver ? 'Game Over!' : 'Welcome to Cyclepath'}
+        </h1>
 
-        {isGameOver ? (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-red-600 mb-2">Game Over!</h2>
-            <p>You crashed! Try again to navigate the streets of Mill Road safely.</p>
-          </div>
-        ) : (
-          <p className="mb-6">Navigate the streets of Mill Road and avoid obstacles to reach your destination!</p>
-        )}
+        <div className="text-cyan-blue mb-8 space-y-4">
+          <h2 className="font-outrun text-xl mb-2">Controls:</h2>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Use <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">W</kbd> or <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">↑</kbd> to move forward</li>
+            <li>Use <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">S</kbd> or <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">↓</kbd> to move backward</li>
+            <li>Use <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">A</kbd> or <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">←</kbd> to turn left</li>
+            <li>Use <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">D</kbd> or <kbd className="bg-neon-orange px-2 py-1 rounded text-deep-purple">→</kbd> to turn right</li>
+          </ul>
 
-        <div className="space-y-4">
-          <button
-            onClick={onStartGame}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            {isGameOver ? 'Play Again' : 'Play'}
-          </button>
+          <p className="mt-4">Avoid obstacles and reach your destination!</p>
         </div>
 
-        <div className="mt-6 text-sm">
-          <p>Controls:</p>
-          <p>W/↑: Move forward</p>
-          <p>S/↓: Move backward</p>
-          <p>A/←: Turn left</p>
-          <p>D/→: Turn right</p>
+        <div className="flex justify-center">
+          <button
+            onClick={onStartGame}
+            className="bg-neon-orange hover:bg-bright-pink text-deep-purple font-outrun text-xl px-8 py-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-neon-pink focus:ring-offset-2 focus:ring-offset-deep-purple"
+            aria-label={isGameOver ? "Retry Game" : "Start Game"}
+          >
+            {isGameOver ? 'Try Again' : 'Start Game'}
+          </button>
         </div>
       </div>
     </div>

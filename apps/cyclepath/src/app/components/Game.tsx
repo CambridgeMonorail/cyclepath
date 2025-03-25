@@ -17,7 +17,11 @@ export const Game = () => {
   };
 
   return (
-    <div className="relative w-full h-screen">
+    <div
+      className="relative w-full h-screen bg-dark-navy"
+      role="main"
+      aria-label="Cyclepath Game"
+    >
       <GameScene isPlaying={isPlaying} onGameOver={handleGameOver} />
 
       {!isPlaying && (

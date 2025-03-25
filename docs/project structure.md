@@ -74,12 +74,6 @@ Shared libraries for reusable code and components.
 - **utils/**: Utility functions for API interactions.
 - **errors/**: Custom error handling for API calls.
 
-#### `shadcnui/`
-
-- **components/**: Reusable UI components.
-- **hooks/**: Shared React hooks for UI logic.
-- **utils/**: Utility functions for UI components.
-
 #### `shared/`
 
 - **types/**: Shared TypeScript types used across the project.
