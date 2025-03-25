@@ -10,8 +10,14 @@ type GameSceneProps = {
 };
 
 export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
+  const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
+
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
+    <div
+      className="w-full h-screen"
+      role="region"
+      aria-label="Game Scene"
+    >
       <Canvas camera={{ position: [0, 5, 10], fov: 50 }}>
         <Suspense fallback={null}>
           <ambientLight intensity={0.5} />
@@ -19,15 +25,21 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
           <Grid
             cellSize={1}
             cellThickness={1}
-            cellColor="#6f6f6f"
+            cellColor="#2DE2E6" // cyan-blue from palette
             sectionSize={3}
             sectionThickness={1.5}
-            sectionColor="#9d4b4b"
+            sectionColor="#FF3864" // neon-pink from palette
             fadeDistance={30}
             fadeStrength={1}
             infiniteGrid
           />
-          {isPlaying && <PlayerWithObstacles onCollision={onGameOver} />}
+          <ObstaclesGenerator
+            count={15}
+            range={30}
+            playerPosition={playerPosition}
+            onCollision={onGameOver}
+          />
+          {isPlaying && <Player position={playerPosition} onMove={setPlayerPosition} />}
           <OrbitControls enabled={!isPlaying} />
         </Suspense>
       </Canvas>
@@ -35,10 +47,15 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   );
 };
 
-// Player component with obstacles
-const PlayerWithObstacles = ({ onCollision }: { onCollision: () => void }) => {
+// Player component
+const Player = ({
+  position,
+  onMove
+}: {
+  position: { x: number; z: number };
+  onMove: (pos: { x: number; z: number }) => void;
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const [position, setPosition] = useState({ x: 0, z: 0 });
   const [rotation, setRotation] = useState(0);
   const [keys, setKeys] = useState({
     forward: false,
@@ -72,12 +89,10 @@ const PlayerWithObstacles = ({ onCollision }: { onCollision: () => void }) => {
     };
   }, []);
 
-  // Update position and rotation based on keyboard input
   useFrame((state, delta) => {
     const speed = 5;
     const rotationSpeed = 2;
 
-    // Update rotation
     if (keys.left) {
       setRotation(r => r + rotationSpeed * delta);
     }
@@ -85,25 +100,28 @@ const PlayerWithObstacles = ({ onCollision }: { onCollision: () => void }) => {
       setRotation(r => r - rotationSpeed * delta);
     }
 
-    // Calculate movement direction based on rotation
     const moveX = Math.sin(rotation);
     const moveZ = Math.cos(rotation);
 
-    // Update position
+    let newPosition = { ...position };
+
     if (keys.forward) {
-      setPosition(pos => ({
-        x: pos.x + moveX * speed * delta,
-        z: pos.z + moveZ * speed * delta
-      }));
+      newPosition = {
+        x: position.x - moveX * speed * delta,
+        z: position.z - moveZ * speed * delta
+      };
     }
     if (keys.backward) {
-      setPosition(pos => ({
-        x: pos.x - moveX * speed * delta,
-        z: pos.z - moveZ * speed * delta
-      }));
+      newPosition = {
+        x: position.x + moveX * speed * delta,
+        z: position.z + moveZ * speed * delta
+      };
     }
 
-    // Apply position and rotation to the mesh
+    if (newPosition.x !== position.x || newPosition.z !== position.z) {
+      onMove(newPosition);
+    }
+
     if (meshRef.current) {
       meshRef.current.position.x = position.x;
       meshRef.current.position.z = position.z;
@@ -112,18 +130,14 @@ const PlayerWithObstacles = ({ onCollision }: { onCollision: () => void }) => {
   });
 
   return (
-    <>
-      <mesh ref={meshRef} position={[position.x, 0.5, position.z]} rotation={[0, rotation, 0]}>
-        <boxGeometry args={[1, 1, 2]} />
-        <meshStandardMaterial color="#ff0000" />
-      </mesh>
-      <ObstaclesGenerator
-        count={15}
-        range={30}
-        playerPosition={position}
-        onCollision={onCollision}
-      />
-    </>
+    <mesh
+      ref={meshRef}
+      position={[position.x, 0.5, position.z]}
+      rotation={[0, rotation, 0]}
+    >
+      <boxGeometry args={[1, 1, 2]} />
+      <meshStandardMaterial color="#FF6C11" /> {/* neon-orange from palette */}
+    </mesh>
   );
 };
 

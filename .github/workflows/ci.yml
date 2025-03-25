@@ -79,14 +79,14 @@ jobs:
 
       # Run lint and tests
       - name: Lint
-        run: pnpm exec nx affected -t lint --parallel=3
+        run: npx nx affected -t lint --parallel=3
 
       - name: Test
-        run: pnpm exec nx affected -t test --parallel=3
+        run: npx nx affected -t test --parallel=3
 
       # Build affected projects
       - name: Build
-        run: pnpm exec nx affected -t build --parallel=3
+        run: npx nx affected -t build --parallel=3
 
       # Run store prune only after successful build
       - name: Cleanup pnpm store

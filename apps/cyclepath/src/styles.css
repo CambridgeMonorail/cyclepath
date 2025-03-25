@@ -1,4 +1,26 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@font-face {
+  font-family: 'Lazer84';
+  src: url('./assets/fonts/Lazer84.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@layer base {
+  body {
+    font-family: "Press Start 2P", system-ui;
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Lazer84', sans-serif;
+    font-weight: normal;
+    font-style: normal;
+  }
+}
+
 /* You can add global styles to this file, and also import other style files */
