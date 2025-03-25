@@ -53,9 +53,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Prune pnpm store
-        run: pnpm store prune
-
       # Install dependencies
       - name: Install dependencies
         run: |
@@ -69,9 +66,11 @@ jobs:
           }
           retry pnpm install --frozen-lockfile
 
+      # Prune store after installation
+      - name: Prune pnpm store
+        run: pnpm store prune || true
+
       - uses: nrwl/nx-set-shas@v4
 
-      # Prepend any command with "nx-cloud record --" to record its logs to Nx Cloud
-      # - run: npx nx-cloud record -- echo Hello World
-      # Nx Affected runs only tasks affected by the changes in this PR/commit. Learn more: https://nx.dev/ci/features/affected
+      # Run affected commands
       - run: pnpm exec nx affected -t lint test build
