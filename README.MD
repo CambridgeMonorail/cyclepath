@@ -8,6 +8,24 @@ Cyclepath is a humorous, high-speed 3D bike racing game set in a vibrant recreat
 - **Technology Stack:** React, TypeScript, Tailwind CSS, Three.js (or react-three-fiber), Nrwl Nx
 - **Target Audience:** Casual gamers, commuters, and local enthusiasts
 
+## Current Project Status
+
+As of January 2024, we have completed Phase 1 (MVP) core functionality:
+- ✅ Basic 3D environment with lighting and physics
+- ✅ Player bike with keyboard controls
+- ✅ Simple obstacle system with collision detection
+- ✅ Basic UI overlay with game start/end states
+- ✅ Initial manual testing of core gameplay mechanics
+
+Phase 2 (Alpha) is now underway, focusing on:
+- 🏗️ Enhanced course design with Mill Road elements
+- 🏗️ Expanded obstacle variety and power-ups
+- 🏗️ Basic mobile touch controls
+- 🏗️ Setting up testing infrastructure
+- 🏗️ Implementing initial automated tests
+
+Next milestone: Alpha release with expanded gameplay features and basic polish.
+
 ## Development Phases
 
 The project is divided into several phases:

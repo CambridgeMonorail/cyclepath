@@ -90,43 +90,37 @@ Ensure inclusive UX on various devices.
 
 ## Project Structure
 
-Follow Nx workspace organization and naming conventions:
-
 ```text
 apps/                   # Application projects
-├── client/            # Main web client
+├── cyclepath/          # Main web client
     ├── src/
         ├── app/       # Core application logic
         ├── components/# Page-specific components
-        ├── hooks/     # Custom React hooks
-        ├── utils/     # Helper functions
-        ├── pages/     # Route components
+        ├── assets/    # Static assets like fonts and images
         ├── styles/    # Global styles
-        └── tests/     # Test files
-├── api/               # Backend API
-    └── src/          
-        ├── routes/    # API endpoints
-        ├── services/  # Business logic
-        └── utils/     # Helper functions
-
-libs/                  # Shared libraries
-├── api/       # API client library
-    ├── src/
-        ├── clients/  # API client implementations
-        ├── types/    # API types and interfaces
-        ├── utils/    # API utilities
-        └── errors/   # Error handling
-
-├── shared/           # Shared utilities
-    ├── src/
-        ├── types/    # Shared TypeScript types
-        ├── utils/    # Common helper functions
-        └── constants/# Shared constants
-
-e2e/                  # End-to-end tests
-├── client/          # Client E2E tests
+        ├── tests/     # Test files
+        └── main.tsx   # Application entry point
+├── cyclepath-e2e/      # End-to-end tests for the client
     └── src/
-        └── tests/   # Playwright test files
+        └── tests/     # Playwright test files
+
+docs/                   # Documentation files
+libs/                   # Shared libraries
+├── road-system/        # Road system utilities and components
+    ├── src/
+        ├── lib/       # Core library code
+            ├── builders/ # Road network builders
+            ├── factories/# Road segment factories
+            ├── types/    # TypeScript types and interfaces
+        └── index.ts   # Library entry point
+├── shared/             # Shared utilities and styles
+    ├── src/
+        ├── styles/    # Shared Tailwind CSS styles
+
+e2e/                    # End-to-end tests
+├── client/             # Client E2E tests
+    └── src/
+        └── tests/     # Playwright test files
 ```
 
 ## Component Design
