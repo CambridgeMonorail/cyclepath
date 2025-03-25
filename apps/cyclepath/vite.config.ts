@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(() => ({
   root: __dirname,
+  base: '/cyclepath/',  // Add this line for GitHub Pages
   cacheDir: '../../node_modules/.vite/apps/cyclepath',
   server: {
     port: 4200,
