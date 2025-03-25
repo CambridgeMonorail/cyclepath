@@ -3,24 +3,10 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Outrun Future';
-  src: url('./assets/fonts/Outrun future.otf') format('opentype');
+  font-family: 'Lazer84';
+  src: url('./assets/fonts/Lazer84.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
-}
-
-@font-face {
-  font-family: 'Outrun Future';
-  src: url('./assets/fonts/Outrun future Bold.otf') format('opentype');
-  font-weight: bold;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Outrun Future';
-  src: url('./assets/fonts/Outrun future Bold Italic.otf') format('opentype');
-  font-weight: bold;
-  font-style: italic;
 }
 
 @layer base {
@@ -31,9 +17,9 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outrun Future', sans-serif;
-    font-weight: bold;
-    font-style: italic;
+    font-family: 'Lazer84', sans-serif;
+    font-weight: normal;
+    font-style: normal;
   }
 }
 

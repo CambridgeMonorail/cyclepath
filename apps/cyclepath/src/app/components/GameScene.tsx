@@ -10,6 +10,8 @@ type GameSceneProps = {
 };
 
 export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
+  const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
+
   return (
     <div
       className="w-full h-screen"
@@ -31,7 +33,13 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
             fadeStrength={1}
             infiniteGrid
           />
-          {isPlaying && <PlayerWithObstacles onCollision={onGameOver} />}
+          <ObstaclesGenerator
+            count={15}
+            range={30}
+            playerPosition={playerPosition}
+            onCollision={onGameOver}
+          />
+          {isPlaying && <Player position={playerPosition} onMove={setPlayerPosition} />}
           <OrbitControls enabled={!isPlaying} />
         </Suspense>
       </Canvas>
@@ -39,10 +47,15 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   );
 };
 
-// Player component with obstacles
-const PlayerWithObstacles = ({ onCollision }: { onCollision: () => void }) => {
+// Player component
+const Player = ({
+  position,
+  onMove
+}: {
+  position: { x: number; z: number };
+  onMove: (pos: { x: number; z: number }) => void;
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const [position, setPosition] = useState({ x: 0, z: 0 });
   const [rotation, setRotation] = useState(0);
   const [keys, setKeys] = useState({
     forward: false,
@@ -90,17 +103,23 @@ const PlayerWithObstacles = ({ onCollision }: { onCollision: () => void }) => {
     const moveX = Math.sin(rotation);
     const moveZ = Math.cos(rotation);
 
+    let newPosition = { ...position };
+
     if (keys.forward) {
-      setPosition(pos => ({
-        x: pos.x + moveX * speed * delta,
-        z: pos.z + moveZ * speed * delta
-      }));
+      newPosition = {
+        x: position.x - moveX * speed * delta,
+        z: position.z - moveZ * speed * delta
+      };
     }
     if (keys.backward) {
-      setPosition(pos => ({
-        x: pos.x - moveX * speed * delta,
-        z: pos.z - moveZ * speed * delta
-      }));
+      newPosition = {
+        x: position.x + moveX * speed * delta,
+        z: position.z + moveZ * speed * delta
+      };
+    }
+
+    if (newPosition.x !== position.x || newPosition.z !== position.z) {
+      onMove(newPosition);
     }
 
     if (meshRef.current) {
@@ -111,22 +130,14 @@ const PlayerWithObstacles = ({ onCollision }: { onCollision: () => void }) => {
   });
 
   return (
-    <>
-      <mesh
-        ref={meshRef}
-        position={[position.x, 0.5, position.z]}
-        rotation={[0, rotation, 0]}
-      >
-        <boxGeometry args={[1, 1, 2]} />
-        <meshStandardMaterial color="#FF6C11" /> {/* neon-orange from palette */}
-      </mesh>
-      <ObstaclesGenerator
-        count={15}
-        range={30}
-        playerPosition={position}
-        onCollision={onCollision}
-      />
-    </>
+    <mesh
+      ref={meshRef}
+      position={[position.x, 0.5, position.z]}
+      rotation={[0, rotation, 0]}
+    >
+      <boxGeometry args={[1, 1, 2]} />
+      <meshStandardMaterial color="#FF6C11" /> {/* neon-orange from palette */}
+    </mesh>
   );
 };
 

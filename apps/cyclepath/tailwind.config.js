@@ -41,7 +41,7 @@ module.exports = {
         'dark-magenta': '#541388',
       },
       fontFamily: {
-        'outrun': ['Outrun Future', 'sans-serif'],
+        'lazer': ['Lazer84', 'sans-serif'],
         'press': ['"Press Start 2P"', 'system-ui'],
       },
     },
