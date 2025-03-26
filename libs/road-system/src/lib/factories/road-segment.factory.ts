@@ -5,13 +5,22 @@ import {
   StraightRoadSegment,
   CurvedRoadSegment,
   IntersectionRoadSegment,
-  JunctionRoadSegment
+  JunctionRoadSegment,
+  RoadTextureOptions
 } from '../types/road.types';
 
 /**
  * Factory class for creating road segments
  */
 export class RoadSegmentFactory {
+  /**
+   * Default texture options to apply to all road segments
+   */
+  private static defaultTextureOptions: RoadTextureOptions = {
+    roadTexture: '/src/assets/textures/road/asphalt.jpg',
+    repeat: new Vector2(1, 5)
+  };
+
   /**
    * Creates a straight road segment
    */
@@ -24,6 +33,7 @@ export class RoadSegmentFactory {
     lanes = 2,
     hasCrosswalk = false,
     id = uuidv4(),
+    textureOptions,
   }: Partial<Omit<StraightRoadSegment, 'type' | 'connections'>> = {}): StraightRoadSegment {
     // Calculate connection points
     const halfLength = length / 2;
@@ -42,6 +52,10 @@ export class RoadSegmentFactory {
       pavementWidth,
       lanes,
       hasCrosswalk,
+      textureOptions: textureOptions || {
+        ...this.defaultTextureOptions,
+        repeat: new Vector2(1, length / 5)
+      },
       connections: {
         start: {
           position: new Vector3(position.x, position.y, position.z - halfLength),
@@ -71,6 +85,7 @@ export class RoadSegmentFactory {
     lanes = 2,
     hasCrosswalk = false,
     id = uuidv4(),
+    textureOptions,
   }: Partial<Omit<CurvedRoadSegment, 'type' | 'connections' | 'length'>> = {}): CurvedRoadSegment {
     // Calculate length based on arc
     const length = radius * angle;
@@ -111,6 +126,10 @@ export class RoadSegmentFactory {
       radius,
       angle,
       direction,
+      textureOptions: textureOptions || {
+        ...this.defaultTextureOptions,
+        repeat: new Vector2(1, length / 5)
+      },
       connections: {
         start: {
           position: startPos,
@@ -137,6 +156,7 @@ export class RoadSegmentFactory {
     lanes = 2,
     hasCrosswalk = true,
     id = uuidv4(),
+    textureOptions,
   }: Partial<Omit<IntersectionRoadSegment, 'type' | 'connections' | 'length'>> = {}): IntersectionRoadSegment {
     // For intersections, length is equal to width
     const length = width;
@@ -154,6 +174,10 @@ export class RoadSegmentFactory {
       pavementWidth,
       lanes,
       hasCrosswalk,
+      textureOptions: textureOptions || {
+        ...this.defaultTextureOptions,
+        repeat: new Vector2(1, 1)
+      },
       connections: {
         north: {
           position: new Vector3(position.x, position.y, position.z - halfWidth),
@@ -192,6 +216,7 @@ export class RoadSegmentFactory {
     branchDirection = 'right',
     hasCrosswalk = true,
     id = uuidv4(),
+    textureOptions,
   }: Partial<Omit<JunctionRoadSegment, 'type' | 'connections'>> = {}): JunctionRoadSegment {
     // Calculate connection points
     const halfLength = length / 2;
@@ -211,6 +236,10 @@ export class RoadSegmentFactory {
       lanes,
       hasCrosswalk,
       branchDirection,
+      textureOptions: textureOptions || {
+        ...this.defaultTextureOptions,
+        repeat: new Vector2(1, 1)
+      },
       connections: {
         main: {
           position: new Vector3(position.x, position.y, position.z - halfLength),

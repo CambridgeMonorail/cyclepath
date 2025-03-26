@@ -1,6 +1,20 @@
 import { Vector2, Vector3 } from 'three';
 
 /**
+ * Defines texture options for road segments
+ */
+export type RoadTextureOptions = {
+  roadTexture?: string; // Path to road surface texture
+  pavementTexture?: string; // Path to pavement/sidewalk texture
+  markingsTexture?: string; // Path to road markings texture
+  roughnessMap?: string; // Path to roughness map for the road
+  normalMap?: string; // Path to normal map for added detail
+  repeat?: Vector2; // Texture repeat configuration
+  offset?: Vector2; // Texture offset configuration
+  rotation?: number; // Texture rotation in radians
+};
+
+/**
  * Defines the possible types of road segments
  */
 export type RoadSegmentType = 'straight' | 'curve' | 'intersection' | 'junction';
@@ -54,6 +68,7 @@ export type RoadSegmentBase = {
   pavementWidth: number;
   lanes: number;
   hasCrosswalk: boolean;
+  textureOptions?: RoadTextureOptions; // Optional texture options
 };
 
 /**

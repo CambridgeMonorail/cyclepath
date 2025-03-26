@@ -1,9 +1,42 @@
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { Suspense, useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { RoadNetworkComponent, RoadNetworkBuilder } from '@cyclepath/road-system';
+import { useWebGLContextHandler } from '@cyclepath/road-system';
 import ObstaclesGenerator from './ObstaclesGenerator';
+
+// Webgl context handler component that registers the renderer
+const WebGLContextManager = () => {
+  const { gl } = useThree();
+  const { registerRenderer } = useWebGLContextHandler();
+
+  useEffect(() => {
+    if (gl) {
+      registerRenderer(gl);
+
+      // Enable memory info logging for debugging
+      if (process.env.NODE_ENV === 'development') {
+        const logMemoryInfo = () => {
+          if ('performance' in window && 'memory' in performance) {
+            const memoryInfo = (performance as any).memory;
+            console.debug('Memory usage:', {
+              totalJSHeapSize: `${Math.round(memoryInfo.totalJSHeapSize / (1024 * 1024))}MB`,
+              usedJSHeapSize: `${Math.round(memoryInfo.usedJSHeapSize / (1024 * 1024))}MB`,
+              jsHeapSizeLimit: `${Math.round(memoryInfo.jsHeapSizeLimit / (1024 * 1024))}MB`,
+            });
+          }
+        };
+
+        // Log memory info every 30 seconds in development mode
+        const intervalId = setInterval(logMemoryInfo, 30000);
+        return () => clearInterval(intervalId);
+      }
+    }
+  }, [gl, registerRenderer]);
+
+  return null;
+};
 
 type GameSceneProps = {
   isPlaying: boolean;
@@ -13,6 +46,12 @@ type GameSceneProps = {
 export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
   const roadNetwork = useMemo(() => RoadNetworkBuilder.createTestNetwork(), []);
+  const [sceneReady, setSceneReady] = useState(false);
+
+  // Handle scene loaded event
+  const handleSceneLoaded = () => {
+    setSceneReady(true);
+  };
 
   return (
     <div
@@ -20,18 +59,41 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
       role="region"
       aria-label="Game Scene"
     >
-      <Canvas camera={{ position: [0, 5, 10], fov: 50 }}>
+      <Canvas
+        camera={{ position: [0, 5, 10], fov: 50 }}
+        gl={{
+          // Set WebGL parameters for better stability
+          powerPreference: 'high-performance',
+          antialias: true,
+          stencil: false,
+          depth: true,
+          // Increase texture max size for high-resolution textures
+          // But not too high to avoid memory issues
+          alpha: false
+        }}
+        onCreated={({ gl }) => {
+          // Enable WebGL error checking in development
+          if (process.env.NODE_ENV === 'development') {
+            gl.debug.checkShaderErrors = true;
+          } else {
+            gl.debug.checkShaderErrors = false;
+          }
+        }}
+      >
         <Suspense fallback={null}>
+          <WebGLContextManager />
           <ambientLight intensity={0.5} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
-          <RoadNetworkComponent network={roadNetwork} />
-          <ObstaclesGenerator
-            count={15}
-            range={30}
-            playerPosition={playerPosition}
-            onCollision={onGameOver}
-          />
-          {isPlaying && (
+          <RoadNetworkComponent network={roadNetwork} onLoad={handleSceneLoaded} />
+          {sceneReady && (
+            <ObstaclesGenerator
+              count={15}
+              range={30}
+              playerPosition={playerPosition}
+              onCollision={onGameOver}
+            />
+          )}
+          {isPlaying && sceneReady && (
             <Player
               position={playerPosition}
               onMove={setPlayerPosition}
