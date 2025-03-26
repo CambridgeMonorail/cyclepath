@@ -34,9 +34,29 @@ A working browser-based prototype where a player can start a race, move the bike
 
 **Objective:** Expand core gameplay features and improve overall user experience while keeping the system functional.
 
-### Enhanced Course & Obstacles
+### 1. Road System Integration & Basic Course Layout
 
-#### 1. Course Data Structure and Generation
+- [x] Implement basic road system components:
+  - [x] Create road segment meshes (straight, curved) (Completed: 2024-03)
+  - [x] Setup basic road network generation (Completed: 2024-03)
+  - [ ] Add simple textures for road surfaces
+  - [ ] Implement basic collision boundaries
+
+- [ ] Integrate road system with game scene:
+  - [ ] Replace placeholder grid with initial road network
+  - [ ] Update camera system to follow road curves
+  - [ ] Implement player movement constraints to stay on roads
+  - [ ] Add visual indicators for valid paths
+  - [ ] Test basic gameplay on road system
+
+- [ ] Setup testing framework for road system:
+  - [x] Unit tests for road generation (Completed: 2024-03)
+  - [ ] Visual validation tools
+  - [ ] Performance benchmarks
+
+### 2. Enhanced Course & Obstacles
+
+#### Course Data Structure and Generation
 
 - [x] Define TypeScript interfaces for road segments and properties:
   - [x] Segment types (straight, curve, intersection)
@@ -54,7 +74,7 @@ A working browser-based prototype where a player can start a race, move the bike
   - [ ] Road markings and textures
   - [ ] Junction/intersection geometry
 
-#### 2. Environment Features
+### 3. Environment Features
 
 - [ ] Design building placement system:
   - [ ] Building footprint definition
@@ -72,7 +92,7 @@ A working browser-based prototype where a player can start a race, move the bike
   - [ ] Ground textures (pavement, grass)
   - [ ] Simple weather effects
 
-#### 3. Performance & Scene Management
+### 4. Performance & Scene Management
 
 - [ ] Implement chunk-based loading:
   - [ ] Define chunk size and structure
@@ -85,7 +105,7 @@ A working browser-based prototype where a player can start a race, move the bike
   - [ ] Implement object culling
   - [ ] Optimize render distance
 
-#### 4. Mill Road Landmarks
+### 5. Mill Road Landmarks
 
 - [ ] Map key locations:
   - [ ] Define major intersection points
@@ -98,7 +118,7 @@ A working browser-based prototype where a player can start a race, move the bike
   - [ ] Implement texture mapping
   - [ ] Add basic collision bounds
 
-#### 5. Course Layout Testing
+### 6. Course Layout Testing
 
 - [ ] Create layout visualization tools:
   - [ ] Top-down course map viewer
@@ -120,32 +140,6 @@ A working browser-based prototype where a player can start a race, move the bike
   - [ ] Temporary speed boost
   - [ ] Shield power-up
   - [ ] Score multiplier
-
-#### 6. Road System Integration
-
-- [ ] Integrate road system with game scene:
-  - [ ] Replace placeholder grid with generated road network
-  - [ ] Update camera system to follow road curves
-  - [ ] Implement player movement constraints to stay on roads
-  - [ ] Add visual indicators for valid paths
-
-- [ ] Integrate environment features:
-  - [ ] Implement building placement around roads
-  - [ ] Add street furniture collision detection
-  - [ ] Place traffic lights at intersections
-  - [ ] Add visual effects for environmental interactions
-
-- [ ] Add gameplay elements using road system:
-  - [ ] Generate checkpoints along road network
-  - [ ] Place power-ups at strategic road locations
-  - [ ] Spawn dynamic obstacles based on road layout
-  - [ ] Create alternative routes and shortcuts
-
-- [ ] Optimize road system performance:
-  - [ ] Implement dynamic road segment loading
-  - [ ] Add level of detail for distant road segments
-  - [ ] Optimize road mesh geometry
-  - [ ] Cache frequently used road segments
 
 ### Improved Controls & Input
 

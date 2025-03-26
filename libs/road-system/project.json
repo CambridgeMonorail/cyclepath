@@ -1,0 +1,9 @@
+{
+  "name": "road-system",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/road-system/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project road-system --web",
+  "targets": {}
+}

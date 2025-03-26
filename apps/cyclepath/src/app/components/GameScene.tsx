@@ -1,7 +1,8 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
-import { Suspense, useRef, useState, useEffect } from 'react';
+import { OrbitControls } from '@react-three/drei';
+import { Suspense, useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { RoadNetworkComponent, RoadNetworkBuilder } from '@cyclepath/road-system';
 import ObstaclesGenerator from './ObstaclesGenerator';
 
 type GameSceneProps = {
@@ -11,6 +12,7 @@ type GameSceneProps = {
 
 export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
+  const roadNetwork = useMemo(() => RoadNetworkBuilder.createTestNetwork(), []);
 
   return (
     <div
@@ -22,24 +24,20 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
         <Suspense fallback={null}>
           <ambientLight intensity={0.5} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
-          <Grid
-            cellSize={1}
-            cellThickness={1}
-            cellColor="#2DE2E6" // cyan-blue from palette
-            sectionSize={3}
-            sectionThickness={1.5}
-            sectionColor="#FF3864" // neon-pink from palette
-            fadeDistance={30}
-            fadeStrength={1}
-            infiniteGrid
-          />
+          <RoadNetworkComponent network={roadNetwork} />
           <ObstaclesGenerator
             count={15}
             range={30}
             playerPosition={playerPosition}
             onCollision={onGameOver}
           />
-          {isPlaying && <Player position={playerPosition} onMove={setPlayerPosition} />}
+          {isPlaying && (
+            <Player
+              position={playerPosition}
+              onMove={setPlayerPosition}
+              roadNetwork={roadNetwork}
+            />
+          )}
           <OrbitControls enabled={!isPlaying} />
         </Suspense>
       </Canvas>
@@ -50,10 +48,12 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
 // Player component
 const Player = ({
   position,
-  onMove
+  onMove,
+  roadNetwork
 }: {
   position: { x: number; z: number };
   onMove: (pos: { x: number; z: number }) => void;
+  roadNetwork: import('@cyclepath/road-system').RoadNetwork;
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [rotation, setRotation] = useState(0);
@@ -119,6 +119,7 @@ const Player = ({
     }
 
     if (newPosition.x !== position.x || newPosition.z !== position.z) {
+      // TODO: Add road boundary checking here
       onMove(newPosition);
     }
 

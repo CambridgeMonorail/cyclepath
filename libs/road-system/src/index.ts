@@ -9,3 +9,5 @@ export * from './lib/builders/road-network.builder';
 
 // Export components
 export * from './lib/road-system';
+export { RoadNetworkComponent } from './lib/components/RoadNetwork';
+export * from './lib/components/RoadSegmentMesh';

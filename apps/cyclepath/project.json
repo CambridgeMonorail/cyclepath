@@ -3,51 +3,14 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/cyclepath/src",
   "projectType": "application",
+  "tags": [],
+  "implicitDependencies": ["road-system"],
   "targets": {
-    "build": {
-      "executor": "@nx/vite:build",
-      "outputs": ["{options.outputPath}"],
-      "defaultConfiguration": "production",
+    "type-check": {
+      "executor": "nx:run-commands",
       "options": {
-        "outputPath": "dist/apps/cyclepath"
-      },
-      "configurations": {
-        "development": {
-          "mode": "development"
-        },
-        "production": {
-          "mode": "production"
-        }
+        "command": "tsc --noEmit"
       }
-    },
-    "serve": {
-      "executor": "@nx/vite:dev-server",
-      "defaultConfiguration": "development",
-      "options": {
-        "buildTarget": "cyclepath:build"
-      },
-      "configurations": {
-        "development": {
-          "buildTarget": "cyclepath:build:development",
-          "hmr": true
-        },
-        "production": {
-          "buildTarget": "cyclepath:build:production",
-          "hmr": false
-        }
-      }
-    },
-    "test": {
-      "executor": "@nx/vite:test",
-      "outputs": ["{options.reportsDirectory}"],
-      "options": {
-        "reportsDirectory": "../../coverage/apps/cyclepath"
-      }
-    },
-    "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"]
     }
-  },
-  "tags": []
+  }
 }
