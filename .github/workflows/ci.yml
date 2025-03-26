@@ -77,16 +77,16 @@ jobs:
       # Set Nx SHAs for affected commands
       - uses: nrwl/nx-set-shas@v4
 
-      # Run lint and tests
+      # Run lint and tests using local nx
       - name: Lint
-        run: npx nx affected -t lint --parallel=3
+        run: pnpm exec nx affected -t lint --parallel=3
 
       - name: Test
-        run: npx nx affected -t test --parallel=3
+        run: pnpm exec nx affected -t test --parallel=3
 
       # Build affected projects
       - name: Build
-        run: npx nx affected -t build --parallel=3
+        run: pnpm exec nx affected -t build --parallel=3
 
       # Run store prune only after successful build
       - name: Cleanup pnpm store

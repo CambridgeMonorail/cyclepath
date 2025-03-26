@@ -1,0 +1,16 @@
+{
+  "name": "cyclepath",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/cyclepath/src",
+  "projectType": "application",
+  "tags": [],
+  "implicitDependencies": ["road-system"],
+  "targets": {
+    "type-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit"
+      }
+    }
+  }
+}
