@@ -1,7 +1,20 @@
 {
-    "cSpell.words": [
-        "Cyclepath",
-        "replayable",
-        "unlockable"
-    ]
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  // Console logging preferences for debugging
+  "console.info.logLevel": "verbose",
+  "debug.console.fontSize": 14,
+  "debug.toolBarLocation": "docked",
+  "debug.internalConsoleOptions": "openOnSessionStart",
+  "debug.console.wordWrap": false,
+  // Custom filtering for console log messages
+  "launch": {
+    "configurations": [],
+    "compounds": []
+  }
+  // Other existing settings...
 }

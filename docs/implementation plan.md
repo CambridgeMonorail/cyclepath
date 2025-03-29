@@ -1,6 +1,6 @@
 # Staged Implementation Plan for CyclePath
 
-## Phase 1: Minimum Viable Product (MVP)
+## Phase 1: Minimum Viable Product (MVP) - Completed ✅
 
 **Objective:** Quickly produce a basic, functional version of the game that demonstrates core mechanics.
 
@@ -30,47 +30,109 @@ A working browser-based prototype where a player can start a race, move the bike
 
 ---
 
-## Phase 2: Alpha – Gameplay Expansion & Basic Polish
+## Phase 2: Alpha – Gameplay Expansion & Basic Polish - In Progress 🔄
 
 **Objective:** Expand core gameplay features and improve overall user experience while keeping the system functional.
 
 ### 1. Road System Integration & Basic Course Layout
 
+#### Critical Path Tasks (High Priority) 🚨
+
+- [ ] Critical rendering issues:
+  - [ ] Diagnose texture rendering problems (textures load but don't display)
+    - [ ] Verify texture loading pipeline in `road-texture.utils.ts`
+    - [ ] Fix texture encoding using `THREE.SRGBColorSpace` standard
+    - [ ] Add texture debugging component for development
+  - [ ] Fix material configuration for React Three Fiber meshes
+    - [ ] Ensure proper material parameter initialization
+    - [ ] Address texture mapping and UV coordinates
+    - [ ] Implement fallback display when textures are unavailable
+
+- [ ] Debug visualization improvements:
+  - [ ] Fix missing red spheres for end connection markers
+    - [ ] Check position vector coordinates relative to road plane
+    - [ ] Ensure proper parent-child relationships in component hierarchy
+  - [ ] Implement visible connection lines between road segments
+    - [ ] Use proper Three.js line materials with appropriate width
+    - [ ] Set display elevation to prevent z-fighting
+  - [ ] Add debug toggle with keyboard controls
+    - [ ] Extend existing debug mode to show all debug elements
+    - [ ] Add option to visualize road segment boundaries
+
+- [ ] Coordinate system standardization:
+  - [ ] Document coordinate system usage (XZ ground plane, Y for height)
+    - [ ] Create reference documentation for team
+    - [ ] Add code comments to clarify coordinate transformations
+  - [ ] Validate mesh rotation and orientation with world coordinates
+    - [ ] Create visual debug mode to display world axes
+    - [ ] Test orientation with different camera angles
+
+#### Base Components (Partially Complete) 🔄
+
 - [x] Implement basic road system components:
   - [x] Create road segment meshes (straight, curved) (Completed: 2024-03)
   - [x] Setup basic road network generation (Completed: 2024-03)
   - [ ] Add simple textures for road surfaces
+    - [ ] Implement proper texture loading for asphalt base texture
+    - [ ] Add normal maps for surface detail
+    - [ ] Add roughness maps for realistic lighting
   - [ ] Implement basic collision boundaries
+    - [ ] Create collision detection utilities
+    - [ ] Define road edge boundaries
+    - [ ] Add debug visualization for collision zones
+
+#### Game Integration (Medium Priority) 🔄
 
 - [ ] Integrate road system with game scene:
   - [ ] Replace placeholder grid with initial road network
+    - [ ] Create factory for road network generation
+    - [ ] Add configuration options for different layouts
   - [ ] Update camera system to follow road curves
+    - [ ] Implement smooth camera transitions
+    - [ ] Add lookahead based on player velocity
   - [ ] Implement player movement constraints to stay on roads
+    - [ ] Define road boundary detection
+    - [ ] Add visual feedback for off-road travel
   - [ ] Add visual indicators for valid paths
+    - [ ] Implement direction arrows on roads
+    - [ ] Add checkpoint visualization
   - [ ] Test basic gameplay on road system
+    - [ ] Verify player movement relative to roads
+    - [ ] Test obstacle placement on roads
+
+#### Testing & Validation (Medium Priority) 🔄
 
 - [ ] Setup testing framework for road system:
   - [x] Unit tests for road generation (Completed: 2024-03)
-  - [ ] Visual validation tools
+  - [ ] Visual validation tools for road segments
+    - [ ] Create debug view for segment connections
+    - [ ] Add toggleable visualization overlays
+  - [ ] Create diagnostic views for road connection debugging
+    - [ ] Implement node graph visualization
+    - [ ] Add visual indicators for connection points
   - [ ] Performance benchmarks
+    - [ ] Profile rendering performance with different road densities
+    - [ ] Test texture loading performance
+    - [ ] Measure collision detection overhead
 
-- [ ] Investigate and resolve road segment rendering issues:
-  - [ ] Diagnose texture rendering problems (textures load but don't display)
-  - [ ] Fix debug visualization placement and visibility
-  - [ ] Resolve coordinate space issues between road segments and debug elements
-  - [ ] Ensure proper texture encoding and configuration (sRGBEncoding, needsUpdate)
-  - [ ] Validate mesh rotation and orientation relative to world coordinates
-  - [ ] Create visual debugging tools for connection points and segment boundaries
-  - [ ] Implement z-ordering fixes for overlapping road elements
-  - [ ] Document proper 3D coordinate usage across the road system
+#### Visual & Performance Improvements (Lower Priority) ⏳
 
-- [ ] Potential next steps:
-  - [ ] Investigate why red spheres (end connection markers) are not visible
-  - [ ] Validate the placement of yellow connection lines and green arrows
-  - [ ] Ensure debug visualizations are correctly positioned relative to road segments
-  - [ ] Check for potential z-fighting issues affecting debug elements
-  - [ ] Add fallback mechanisms for missing textures or debug elements
-  - [ ] Improve logging to capture rendering issues in development mode
+- [ ] Implement visual enhancements for roads:
+  - [ ] Add fallback mechanisms for missing textures
+    - [ ] Create procedural texture generation
+    - [ ] Add error indicators in development mode
+  - [ ] Implement z-ordering fixes for overlapping elements
+    - [ ] Add proper depth testing configuration
+    - [ ] Fix render order for transparent elements
+  - [ ] Add road markings and details
+    - [ ] Create reusable marking components
+    - [ ] Add procedural detail generation
+  - [ ] Optimize texture loading and caching
+    - [ ] Implement advanced texture pooling
+    - [ ] Add preloading for common textures
+  - [ ] Implement instanced rendering for repeated elements
+    - [ ] Use Three.js instanced meshes for similar objects
+    - [ ] Add culling for off-screen elements
 
 ### 2. Enhanced Course & Obstacles
 
@@ -442,3 +504,38 @@ A release candidate version ready for launch.
 
 **Deliverable:**  
 A continually evolving game with regular updates and community engagement.
+
+---
+
+## Code Style & Technical Requirements
+
+All implementations must adhere to the Cyclepath coding standards:
+
+1. **TypeScript First**
+   - Use strict typing for all components and functions
+   - Create proper type definitions in dedicated type files
+   - Prefer `type` over `interface` except when extending
+
+2. **React Component Structure**
+   - Use functional components with React hooks
+   - Follow single-responsibility principle
+   - Maintain proper prop typing with optional/required distinctions
+   - Implement error boundaries for 3D components
+
+3. **Three.js Best Practices**
+   - Follow React Three Fiber patterns for declarative 3D
+   - Use `useFrame` for animations instead of render loops
+   - Implement proper texture management and memory cleanup
+   - Optimize using instanced meshes for similar objects
+
+4. **Testing Approach**
+   - Co-locate tests with components (`Component.spec.tsx`)
+   - Use Vitest for unit and integration testing
+   - Implement visual regression tests for 3D elements
+   - Create test utilities for common 3D testing scenarios
+
+5. **Performance Considerations**
+   - Manage texture memory appropriately
+   - Implement proper object pooling
+   - Use React profiler to identify component bottlenecks
+   - Implement tree-shaking compatible code structure

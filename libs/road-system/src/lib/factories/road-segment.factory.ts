@@ -1,4 +1,4 @@
-import { Vector3, Matrix4, Vector2 } from 'three';
+import { Vector3, Matrix4, Vector2, MathUtils } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import {
   RoadSegment,
@@ -8,11 +8,19 @@ import {
   CurvedRoadConnections,
   IntersectionRoadConnections,
   JunctionRoadConnections,
-  RoadTextureOptions
+  RoadTextureOptions,
 } from '../types/road.types';
 
 // Type for connection keys across all segment types
-export type ConnectionKey = 'start' | 'end' | 'north' | 'south' | 'east' | 'west' | 'main' | 'branch';
+export type ConnectionKey =
+  | 'start'
+  | 'end'
+  | 'north'
+  | 'south'
+  | 'east'
+  | 'west'
+  | 'main'
+  | 'branch';
 
 export type CreateStraightOptions = {
   position: Vector3;
@@ -39,15 +47,18 @@ export class RoadSegmentFactory {
     hasCrosswalk = false,
     textureOptions = {},
   }: CreateStraightOptions): StraightRoadSegment {
-    // Flatten position and rotation to be aligned with the XZ plane
+    // Flatten position and rotation for road segments (roads are on XZ plane)
+    // Important: we use -Math.PI/2 on the X-axis to rotate the plane from XY to XZ orientation
     const flatPosition = new Vector3(position.x, 0, position.z);
-    const flatRotation = new Vector3(0, rotation.y, 0);
+
+    // Apply the X rotation to align with XZ plane, then add the Y rotation for direction
+    const flatRotation = new Vector3(-Math.PI / 2, rotation.y, 0);
 
     // Half the length of the segment (used for connection point calculations)
     const halfLength = length / 2;
 
-    // Create a matrix for rotating points around the Y axis
-    const rotationMatrix = new Matrix4().makeRotationY(flatRotation.y);
+    // Create a matrix for rotating points around the Y axis for the connection points
+    const rotationMatrix = new Matrix4().makeRotationY(rotation.y);
 
     // Calculate start position in local space
     const startLocal = new Vector3(0, 0, -halfLength);
@@ -73,8 +84,8 @@ export class RoadSegmentFactory {
     const startConnection: RoadConnection = {
       position: startPosition,
       direction: new Vector2(
-        -Math.sin(flatRotation.y),
-        -Math.cos(flatRotation.y)
+        -Math.sin(rotation.y),
+        -Math.cos(rotation.y)
       ).normalize(),
       width,
     };
@@ -82,25 +93,45 @@ export class RoadSegmentFactory {
     const endConnection: RoadConnection = {
       position: endPosition,
       direction: new Vector2(
-        Math.sin(flatRotation.y),
-        Math.cos(flatRotation.y)
+        Math.sin(rotation.y),
+        Math.cos(rotation.y)
       ).normalize(),
       width,
     };
 
-    // Log the calculated connection points for debugging
+    // Log the calculated connection points and rotation in degrees for debugging
     if (process.env.NODE_ENV === 'development') {
       console.log('Creating straight segment:');
       console.log('- Position:', flatPosition);
-      console.log('- Rotation:', flatRotation);
+      console.log('- Rotation (radians):', flatRotation);
+      console.log(
+        '- Rotation (degrees):',
+        new Vector3(
+          MathUtils.radToDeg(flatRotation.x),
+          MathUtils.radToDeg(flatRotation.y),
+          MathUtils.radToDeg(flatRotation.z)
+        )
+      );
       console.log('- Length/Width:', length, width);
       console.log('- Start connection:', {
-        position: `(${startConnection.position.x.toFixed(2)}, ${startConnection.position.y.toFixed(2)}, ${startConnection.position.z.toFixed(2)})`,
-        direction: `(${startConnection.direction.x.toFixed(2)}, ${startConnection.direction.y.toFixed(2)})`
+        position: `(${startConnection.position.x.toFixed(
+          2
+        )}, ${startConnection.position.y.toFixed(
+          2
+        )}, ${startConnection.position.z.toFixed(2)})`,
+        direction: `(${startConnection.direction.x.toFixed(
+          2
+        )}, ${startConnection.direction.y.toFixed(2)})`,
       });
       console.log('- End connection:', {
-        position: `(${endConnection.position.x.toFixed(2)}, ${endConnection.position.y.toFixed(2)}, ${endConnection.position.z.toFixed(2)})`,
-        direction: `(${endConnection.direction.x.toFixed(2)}, ${endConnection.direction.y.toFixed(2)})`
+        position: `(${endConnection.position.x.toFixed(
+          2
+        )}, ${endConnection.position.y.toFixed(
+          2
+        )}, ${endConnection.position.z.toFixed(2)})`,
+        direction: `(${endConnection.direction.x.toFixed(
+          2
+        )}, ${endConnection.direction.y.toFixed(2)})`,
       });
     }
 
@@ -123,6 +154,8 @@ export class RoadSegmentFactory {
         roadTexture: textureOptions.roadTexture || 'asphalt.jpg',
         normalMap: textureOptions.normalMap || 'asphalt_normal.png',
         roughnessMap: textureOptions.roughnessMap || 'asphalt_roughness.png',
+        // Ensure texture is oriented correctly for the road
+        rotation: textureOptions.rotation || 0,
       },
     };
   }
@@ -136,20 +169,36 @@ export class RoadSegmentFactory {
   ): RoadConnection {
     if (segment.type === 'straight' || segment.type === 'curve') {
       if (connectionKey === 'start' || connectionKey === 'end') {
-        return (segment.connections as StraightRoadConnections | CurvedRoadConnections)[connectionKey];
+        return (
+          segment.connections as StraightRoadConnections | CurvedRoadConnections
+        )[connectionKey];
       }
     } else if (segment.type === 'intersection') {
-      if (connectionKey === 'north' || connectionKey === 'south' ||
-          connectionKey === 'east' || connectionKey === 'west') {
-        return (segment.connections as IntersectionRoadConnections)[connectionKey];
+      if (
+        connectionKey === 'north' ||
+        connectionKey === 'south' ||
+        connectionKey === 'east' ||
+        connectionKey === 'west'
+      ) {
+        return (segment.connections as IntersectionRoadConnections)[
+          connectionKey
+        ];
       }
     } else if (segment.type === 'junction') {
-      if (connectionKey === 'main' || connectionKey === 'branch' || connectionKey === 'end') {
+      if (
+        connectionKey === 'main' ||
+        connectionKey === 'branch' ||
+        connectionKey === 'end'
+      ) {
         return (segment.connections as JunctionRoadConnections)[connectionKey];
       }
     }
 
-    throw new Error(`Invalid connection key "${String(connectionKey)}" for segment type "${segment.type}"`);
+    throw new Error(
+      `Invalid connection key "${String(connectionKey)}" for segment type "${
+        segment.type
+      }"`
+    );
   }
 
   /**
@@ -172,10 +221,17 @@ export class RoadSegmentFactory {
     // Log connection operation for debugging
     if (process.env.NODE_ENV === 'development') {
       console.log('Connecting segments:');
-      console.log(`- Segment 1 (${segment1.id}) ${String(connectionKey1)} to Segment 2 (${segment2.id}) ${String(connectionKey2)}`);
+      console.log(
+        `- Segment 1 (${segment1.id}) ${String(connectionKey1)} to Segment 2 (${
+          segment2.id
+        }) ${String(connectionKey2)}`
+      );
       console.log('- Connection 1 position:', connection1.position);
       console.log('- Connection 2 position:', connection2.position);
-      console.log('- Distance before alignment:', connection1.position.distanceTo(connection2.position).toFixed(4));
+      console.log(
+        '- Distance before alignment:',
+        connection1.position.distanceTo(connection2.position).toFixed(4)
+      );
     }
 
     // Note: For now, we're keeping the segments at their original positions

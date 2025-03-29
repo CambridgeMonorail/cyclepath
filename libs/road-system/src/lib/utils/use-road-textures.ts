@@ -1,5 +1,11 @@
 import { useMemo } from 'react';
-import { Vector2, CanvasTexture, RepeatWrapping, Texture } from 'three';
+import {
+  Vector2,
+  CanvasTexture,
+  RepeatWrapping,
+  Texture,
+  SRGBColorSpace,
+} from 'three';
 import { RoadSegment, RoadTextureOptions } from '../types/road.types';
 import { RoadTextureLoader } from './road-texture.utils';
 
@@ -11,7 +17,12 @@ import { RoadTextureLoader } from './road-texture.utils';
  * @returns A CanvasTexture instance
  */
 const createCanvasTexture = (
-  type: 'asphalt' | 'markings-straight' | 'markings-curve' | 'markings-intersection' | 'markings-junction',
+  type:
+    | 'asphalt'
+    | 'markings-straight'
+    | 'markings-curve'
+    | 'markings-intersection'
+    | 'markings-junction',
   color = '#333333',
   size = 256
 ): CanvasTexture => {
@@ -26,9 +37,15 @@ const createCanvasTexture = (
     throw new Error('Could not get 2D context for canvas');
   }
 
-  // Fill with base color
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, size, size);
+  // Initialize the canvas differently based on texture type
+  if (type === 'asphalt') {
+    // Fill with base color for asphalt
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, size, size);
+  } else {
+    // For road markings, start with a transparent canvas
+    ctx.clearRect(0, 0, size, size);
+  }
 
   // Add texture details based on type
   switch (type) {
@@ -54,20 +71,22 @@ const createCanvasTexture = (
 
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, 0.3)`;
+        ctx.fillStyle = `rgba(${Math.floor(Math.random() * 100)}, ${Math.floor(
+          Math.random() * 100
+        )}, ${Math.floor(Math.random() * 100)}, 0.3)`;
         ctx.fill();
       }
       break;
 
     case 'markings-straight':
-      // Draw center line
-      ctx.fillStyle = '#ffffff';
+      // Draw center line - solid double yellow
+      ctx.fillStyle = '#FFDD00';
       ctx.fillRect(size * 0.48, 0, size * 0.04, size);
 
-      // Draw dashed side lines
-      ctx.setLineDash([size * 0.1, size * 0.1]);
-      ctx.lineWidth = size * 0.02;
-      ctx.strokeStyle = '#ffffff';
+      // Draw dashed white side lines
+      ctx.setLineDash([size * 0.15, size * 0.25]); // Longer dashes, greater spacing
+      ctx.lineWidth = size * 0.025;
+      ctx.strokeStyle = '#FFFFFF';
 
       // Left lane marking
       ctx.beginPath();
@@ -83,60 +102,64 @@ const createCanvasTexture = (
       break;
 
     case 'markings-curve':
-      // Draw curved center line
-      ctx.strokeStyle = '#ffffff';
+      // Draw curved center line - solid yellow
+      ctx.strokeStyle = '#FFDD00';
       ctx.lineWidth = size * 0.04;
+      ctx.setLineDash([]); // Solid line
       ctx.beginPath();
-      ctx.arc(0, size, size * 0.9, -Math.PI/2, 0);
+      ctx.arc(0, size, size * 0.9, -Math.PI / 2, 0);
       ctx.stroke();
 
-      // Draw curved dashed lines
-      ctx.setLineDash([size * 0.08, size * 0.08]);
-      ctx.lineWidth = size * 0.02;
+      // Draw curved dashed lines - white
+      ctx.setLineDash([size * 0.1, size * 0.2]);
+      ctx.lineWidth = size * 0.025;
+      ctx.strokeStyle = '#FFFFFF';
 
       // Inner lane marking
       ctx.beginPath();
-      ctx.arc(0, size, size * 0.7, -Math.PI/2, 0);
+      ctx.arc(0, size, size * 0.7, -Math.PI / 2, 0);
       ctx.stroke();
 
       // Outer lane marking
       ctx.beginPath();
-      ctx.arc(0, size, size * 1.1, -Math.PI/2, 0);
+      ctx.arc(0, size, size * 1.1, -Math.PI / 2, 0);
       ctx.stroke();
       break;
 
     case 'markings-intersection':
       // Draw crosswalk lines
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#FFFFFF';
 
       // Horizontal crosswalk
       for (let i = 0; i < 5; i++) {
         ctx.fillRect(0, size * 0.3 + i * size * 0.1, size, size * 0.05);
       }
 
-      // Vertical crosswalk
-      for (let i = 0; i < 5; i++) {
-        ctx.fillRect(size * 0.3 + i * size * 0.1, 0, size * 0.05, size);
-      }
-
-      // Center dot
-      ctx.beginPath();
-      ctx.arc(size/2, size/2, size * 0.05, 0, Math.PI * 2);
-      ctx.fill();
+      // Stop line
+      ctx.fillRect(0, size * 0.2, size, size * 0.06);
       break;
 
     case 'markings-junction':
       // Draw T-junction markings
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#FFFFFF';
 
-      // Main road center line
+      // Main road center line - yellow
+      ctx.fillStyle = '#FFDD00';
       ctx.fillRect(0, size * 0.48, size, size * 0.04);
 
-      // Junction line
-      ctx.fillRect(size * 0.48, 0, size * 0.04, size * 0.5);
+      // Stop line - thick white
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(size * 0.3, size * 0.3, size * 0.4, size * 0.06);
 
-      // Stop line
-      ctx.fillRect(size * 0.3, size * 0.3, size * 0.4, size * 0.04);
+      // Yield marks
+      ctx.fillStyle = '#FFFFFF';
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(size * 0.4 + i * size * 0.1, size * 0.2);
+        ctx.lineTo(size * 0.45 + i * size * 0.1, size * 0.28);
+        ctx.lineTo(size * 0.5 + i * size * 0.1, size * 0.2);
+        ctx.fill();
+      }
       break;
   }
 
@@ -144,6 +167,9 @@ const createCanvasTexture = (
   const texture = new CanvasTexture(canvas);
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
+
+  // Important: preserve transparency for road markings
+  texture.premultiplyAlpha = true;
 
   return texture;
 };
@@ -206,26 +232,26 @@ const DEFAULT_TEXTURE_OPTIONS: Record<string, RoadTextureOptions> = {
     roadTexture: 'asphalt.jpg',
     normalMap: 'asphalt_normal.png',
     roughnessMap: 'asphalt_roughness.png',
-    repeat: new Vector2(1, 5)
+    repeat: new Vector2(1, 5),
   },
   curve: {
     roadTexture: 'asphalt.jpg',
     normalMap: 'asphalt_normal.png',
     roughnessMap: 'asphalt_roughness.png',
-    repeat: new Vector2(1, 1)
+    repeat: new Vector2(1, 1),
   },
   intersection: {
     roadTexture: 'asphalt.jpg',
     normalMap: 'asphalt_normal.png',
     roughnessMap: 'asphalt_roughness.png',
-    repeat: new Vector2(1, 1)
+    repeat: new Vector2(1, 1),
   },
   junction: {
     roadTexture: 'asphalt.jpg',
     normalMap: 'asphalt_normal.png',
     roughnessMap: 'asphalt_roughness.png',
-    repeat: new Vector2(1, 1)
-  }
+    repeat: new Vector2(1, 1),
+  },
 };
 
 /**
@@ -243,13 +269,47 @@ export type RoadTextures = {
 };
 
 /**
+ * Ensures a texture is properly configured with standard settings
+ * This helps prevent inconsistent texture appearances across different surfaces
+ */
+const ensureTextureConfig = (
+  texture: Texture | null,
+  repeat?: Vector2,
+  rotation?: number
+): Texture | null => {
+  if (!texture) return null;
+
+  // Set essential texture properties
+  texture.needsUpdate = true;
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+
+  // Apply repeat if provided
+  if (repeat) {
+    texture.repeat.copy(repeat);
+  }
+
+  // Apply rotation if provided
+  if (rotation !== undefined) {
+    texture.rotation = rotation;
+  }
+
+  return texture;
+};
+
+/**
  * Hook to generate and prepare textures for a road segment
  * @param segment The road segment to generate textures for
  * @returns Object containing generated textures
  */
 export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
   return useMemo(() => {
-    console.log('useRoadTextures called for segment:', segment.id, segment.type);
+    console.log(
+      'useRoadTextures called for segment:',
+      segment.id,
+      segment.type
+    );
 
     // Create default texture options if none are provided
     const defaultOptions: RoadTextureOptions = {
@@ -257,16 +317,19 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
       roadTexture: 'asphalt.jpg',
       normalMap: 'asphalt_normal.png',
       roughnessMap: 'asphalt_roughness.png',
-      repeat: new Vector2(1, segment.type === 'straight' ? 5 : 1)
+      repeat: new Vector2(1, segment.type === 'straight' ? 5 : 1),
     };
 
     // Determine texture options - use segment's options or fall back to defaults
-    const textureOptions = segment.textureOptions || DEFAULT_TEXTURE_OPTIONS[segment.type] || defaultOptions;
+    const textureOptions =
+      segment.textureOptions ||
+      DEFAULT_TEXTURE_OPTIONS[segment.type] ||
+      defaultOptions;
 
     console.log('Texture options for segment:', segment.id, textureOptions);
 
     // Calculate repeat based on segment dimensions
-    let repeat = textureOptions.repeat;
+    let repeat = textureOptions.repeat ? textureOptions.repeat.clone() : null;
     if (!repeat) {
       if (segment.type === 'straight') {
         // For straight segments, set repeat based on length
@@ -289,11 +352,21 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
     // Try to load from file first if path is provided
     if (textureOptions.roadTexture) {
       try {
-        console.log('Attempting to load texture from:', textureOptions.roadTexture);
-        asphaltTexture = RoadTextureLoader.loadTexture(textureOptions.roadTexture, repeat, textureOptions.rotation);
+        console.log(
+          'Attempting to load texture from:',
+          textureOptions.roadTexture
+        );
+        asphaltTexture = RoadTextureLoader.loadTexture(
+          textureOptions.roadTexture,
+          repeat,
+          textureOptions.rotation
+        );
         console.log('Successfully loaded texture from file');
       } catch (error) {
-        console.warn('Failed to load texture from file, falling back to procedural texture', error);
+        console.warn(
+          'Failed to load texture from file, falling back to procedural texture',
+          error
+        );
         asphaltTexture = null;
       }
     }
@@ -301,11 +374,21 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
     // Try to load normal map texture if specified
     if (textureOptions.normalMap) {
       try {
-        console.log('Attempting to load normal map from:', textureOptions.normalMap);
-        normalMapTexture = RoadTextureLoader.loadTexture(textureOptions.normalMap, repeat, textureOptions.rotation);
+        console.log(
+          'Attempting to load normal map from:',
+          textureOptions.normalMap
+        );
+        normalMapTexture = RoadTextureLoader.loadTexture(
+          textureOptions.normalMap,
+          repeat,
+          textureOptions.rotation
+        );
         console.log('Successfully loaded normal map');
       } catch (error) {
-        console.warn('Failed to load normal map, will continue without it', error);
+        console.warn(
+          'Failed to load normal map, will continue without it',
+          error
+        );
         normalMapTexture = null;
       }
     }
@@ -313,27 +396,43 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
     // Try to load roughness map texture if specified
     if (textureOptions.roughnessMap) {
       try {
-        console.log('Attempting to load roughness map from:', textureOptions.roughnessMap);
-        roughnessTexture = RoadTextureLoader.loadTexture(textureOptions.roughnessMap, repeat, textureOptions.rotation);
+        console.log(
+          'Attempting to load roughness map from:',
+          textureOptions.roughnessMap
+        );
+        roughnessTexture = RoadTextureLoader.loadTexture(
+          textureOptions.roughnessMap,
+          repeat,
+          textureOptions.rotation
+        );
         console.log('Successfully loaded roughness map');
       } catch (error) {
-        console.warn('Failed to load roughness map, falling back to procedural texture', error);
+        console.warn(
+          'Failed to load roughness map, falling back to procedural texture',
+          error
+        );
         roughnessTexture = null;
       }
     }
 
     // If file loading failed or no path was provided, create procedural texture
     if (!asphaltTexture) {
-      console.log('Creating procedural asphalt texture for segment:', segment.id);
+      console.log(
+        'Creating procedural asphalt texture for segment:',
+        segment.id
+      );
       asphaltTexture = createCanvasTexture('asphalt', '#333333');
-      asphaltTexture.repeat.copy(repeat);
+      if (repeat) asphaltTexture.repeat.copy(repeat);
     }
 
     // If roughness map loading failed, create procedural one
     if (!roughnessTexture) {
-      console.log('Creating procedural roughness texture for segment:', segment.id);
+      console.log(
+        'Creating procedural roughness texture for segment:',
+        segment.id
+      );
       roughnessTexture = createRoughnessTexture(0.8);
-      roughnessTexture.repeat.copy(repeat);
+      if (repeat) roughnessTexture.repeat.copy(repeat);
     }
 
     // Generate appropriate markings texture based on segment type
@@ -347,33 +446,64 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
       markingsTexture = createCanvasTexture('markings-junction', '#ffffff');
     }
 
-    if (markingsTexture) {
+    if (markingsTexture && repeat) {
       markingsTexture.repeat.copy(repeat);
     }
 
-    // If segment has rotation, apply it to all textures
-    if (textureOptions.rotation) {
-      asphaltTexture.rotation = textureOptions.rotation;
-      if (normalMapTexture) normalMapTexture.rotation = textureOptions.rotation;
-      if (roughnessTexture) roughnessTexture.rotation = textureOptions.rotation;
-      if (markingsTexture) markingsTexture.rotation = textureOptions.rotation;
+    // Ensure all textures are properly configured
+    asphaltTexture = ensureTextureConfig(
+      asphaltTexture,
+      repeat,
+      textureOptions.rotation
+    );
+    normalMapTexture = ensureTextureConfig(
+      normalMapTexture,
+      repeat,
+      textureOptions.rotation
+    );
+    roughnessTexture = ensureTextureConfig(
+      roughnessTexture as Texture,
+      repeat,
+      textureOptions.rotation
+    );
+    markingsTexture = ensureTextureConfig(
+      markingsTexture as Texture,
+      repeat,
+      textureOptions.rotation
+    );
+
+    // CRITICAL: Force texture updates
+    // This helps avoid a common React Three Fiber problem where textures don't update properly
+    if (asphaltTexture) {
+      asphaltTexture.uuid = segment.id + '-asphalt'; // Custom UUID helps debugging
+      asphaltTexture.needsUpdate = true;
     }
 
-    // Ensure texture.needsUpdate is true for all textures
-    asphaltTexture.needsUpdate = true;
-    if (normalMapTexture) normalMapTexture.needsUpdate = true;
-    if (roughnessTexture) roughnessTexture.needsUpdate = true;
-    if (markingsTexture) markingsTexture.needsUpdate = true;
+    if (normalMapTexture) {
+      normalMapTexture.uuid = segment.id + '-normal';
+      normalMapTexture.needsUpdate = true;
+    }
+
+    if (roughnessTexture) {
+      roughnessTexture.uuid = segment.id + '-roughness';
+      roughnessTexture.needsUpdate = true;
+    }
 
     const result: RoadTextures = {
       map: asphaltTexture,
       normalMap: normalMapTexture,
       roughnessMap: roughnessTexture,
-      markingsMap: markingsTexture
+      markingsMap: markingsTexture,
     };
 
-    console.log('Textures created for segment:', segment.id,
-      !!result.map, !!result.normalMap, !!result.roughnessMap, !!result.markingsMap);
+    console.log(
+      'Textures created for segment:',
+      segment.id,
+      !!result.map,
+      !!result.normalMap,
+      !!result.roughnessMap,
+      !!result.markingsMap
+    );
 
     return result;
   }, [segment]);

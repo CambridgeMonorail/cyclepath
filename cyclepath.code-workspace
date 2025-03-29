@@ -1,13 +1,18 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {
-		"cSpell.words": [
-			"drei",
-			"metalness"
-		]
-	}
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "cSpell.words": [
+      "cyclepath",
+      "drei",
+      "metalness",
+      "SRGB",
+      "togglable",
+      "toggleable",
+      "uuidv"
+    ]
+  }
 }

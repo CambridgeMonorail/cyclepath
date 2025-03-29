@@ -8,32 +8,46 @@ type RoadNetworkComponentProps = {
   debug?: boolean;
 };
 
+/**
+ * Component that renders the entire road network
+ */
 export const RoadNetworkComponent = ({
   network,
   onLoad,
   debug = false,
 }: RoadNetworkComponentProps) => {
-  const [loaded, setLoaded] = useState(false);
+  // Track if the overlay should be displayed
+  const [showTextureDebug, setShowTextureDebug] = useState(false);
 
   useEffect(() => {
-    // Debug log the network being rendered
-    console.log('Rendering road network:', {
-      segmentCount: network.segments.length,
-      segments: network.segments.map(segment => ({
-        id: segment.id,
-        type: segment.type,
-        position: `(${segment.position.x.toFixed(2)}, ${segment.position.y.toFixed(2)}, ${segment.position.z.toFixed(2)})`,
-      }))
-    });
-
     // Simulate a loading delay (1ms) to ensure rendering is complete
     const timer = setTimeout(() => {
-      setLoaded(true);
       onLoad?.();
     }, 1);
 
     return () => clearTimeout(timer);
   }, [network, onLoad]);
+
+  // Add keyboard listener for texture debug overlay (T key)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' || debug) {
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 't' || event.key === 'T') {
+          // Instead of toggling the overlay component, create a custom event
+          // that will be handled outside of the Three.js canvas
+          const customEvent = new CustomEvent('cyclepath:toggleTextureDebug', {
+            detail: { visible: !showTextureDebug },
+          });
+          window.dispatchEvent(customEvent);
+          setShowTextureDebug(!showTextureDebug);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+    return undefined;
+  }, [debug, showTextureDebug]);
 
   return (
     <group>

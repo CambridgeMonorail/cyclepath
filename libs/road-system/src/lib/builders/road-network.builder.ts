@@ -3,13 +3,14 @@ import {
   RoadNetwork,
   RoadSegment,
   StraightRoadSegment,
-  CurvedRoadSegment
+  CurvedRoadSegment,
 } from '../types/road.types';
-import { RoadSegmentFactory, ConnectionKey } from '../factories/road-segment.factory';
+import { RoadSegmentFactory } from '../factories/road-segment.factory';
 
 // Type guard functions to check segment types
-const isStraightSegment = (segment: RoadSegment): segment is StraightRoadSegment =>
-  segment.type === 'straight';
+const isStraightSegment = (
+  segment: RoadSegment
+): segment is StraightRoadSegment => segment.type === 'straight';
 
 const isCurvedSegment = (segment: RoadSegment): segment is CurvedRoadSegment =>
   segment.type === 'curve';
@@ -41,7 +42,10 @@ export class RoadNetworkBuilder {
 
     // Calculate the direction angle from the direction vector
     // Note: Vector2's y component corresponds to z in world space for our road system
-    const directionAngle = Math.atan2(endConnection.direction.x, endConnection.direction.y);
+    const directionAngle = Math.atan2(
+      endConnection.direction.x,
+      endConnection.direction.y
+    );
 
     // Create the second segment at the end connection position with the calculated rotation
     const segment2 = RoadSegmentFactory.createStraight({
@@ -56,41 +60,61 @@ export class RoadNetworkBuilder {
       console.log('=== Road Network Construction ===');
       console.log('Segment 1:', {
         id: segment1.id,
-        position: `(${segment1.position.x.toFixed(2)}, ${segment1.position.z.toFixed(2)})`,
-        rotation: `${(segment1.rotation.y * 180 / Math.PI).toFixed(2)}°`,
-        endConnection: `(${endConnection.position.x.toFixed(2)}, ${endConnection.position.z.toFixed(2)})`,
-        endDirection: `(${endConnection.direction.x.toFixed(2)}, ${endConnection.direction.y.toFixed(2)})`
+        position: `(${segment1.position.x.toFixed(
+          2
+        )}, ${segment1.position.z.toFixed(2)})`,
+        rotation: `${((segment1.rotation.y * 180) / Math.PI).toFixed(2)}°`,
+        endConnection: `(${endConnection.position.x.toFixed(
+          2
+        )}, ${endConnection.position.z.toFixed(2)})`,
+        endDirection: `(${endConnection.direction.x.toFixed(
+          2
+        )}, ${endConnection.direction.y.toFixed(2)})`,
       });
 
       console.log('Segment 2:', {
         id: segment2.id,
-        position: `(${segment2.position.x.toFixed(2)}, ${segment2.position.z.toFixed(2)})`,
-        rotation: `${(segment2.rotation.y * 180 / Math.PI).toFixed(2)}°`,
-        startConnection: `(${segment2.connections.start.position.x.toFixed(2)}, ${segment2.connections.start.position.z.toFixed(2)})`,
-        startDirection: `(${segment2.connections.start.direction.x.toFixed(2)}, ${segment2.connections.start.direction.y.toFixed(2)})`
+        position: `(${segment2.position.x.toFixed(
+          2
+        )}, ${segment2.position.z.toFixed(2)})`,
+        rotation: `${((segment2.rotation.y * 180) / Math.PI).toFixed(2)}°`,
+        startConnection: `(${segment2.connections.start.position.x.toFixed(
+          2
+        )}, ${segment2.connections.start.position.z.toFixed(2)})`,
+        startDirection: `(${segment2.connections.start.direction.x.toFixed(
+          2
+        )}, ${segment2.connections.start.direction.y.toFixed(2)})`,
       });
 
       // Calculate and log the distance between connection points to validate alignment
-      const distance = endConnection.position.distanceTo(segment2.connections.start.position);
+      const distance = endConnection.position.distanceTo(
+        segment2.connections.start.position
+      );
       console.log('Distance between connection points:', distance.toFixed(4));
 
       // Check if directions are opposite (dot product should be close to -1)
-      const dotProduct = endConnection.direction.dot(segment2.connections.start.direction);
-      console.log('Direction alignment (dot product):', dotProduct.toFixed(4),
-        '(should be close to -1 for perfectly opposite directions)');
+      const dotProduct = endConnection.direction.dot(
+        segment2.connections.start.direction
+      );
+      console.log(
+        'Direction alignment (dot product):',
+        dotProduct.toFixed(4),
+        '(should be close to -1 for perfectly opposite directions)'
+      );
     }
 
     // Connect the segments logically (this doesn't change their positions yet)
-    const [updatedSegment1, updatedSegment2] = RoadSegmentFactory.connectSegments(
-      segment1, 'end',
-      segment2, 'start'
-    );
+    const [updatedSegment1, updatedSegment2] =
+      RoadSegmentFactory.connectSegments(segment1, 'end', segment2, 'start');
 
     // Set starting point for the network using type guards to safely access connections
     let startPoint: Vector3;
     const endPoints: Vector3[] = [];
 
-    if (isStraightSegment(updatedSegment1) || isCurvedSegment(updatedSegment1)) {
+    if (
+      isStraightSegment(updatedSegment1) ||
+      isCurvedSegment(updatedSegment1)
+    ) {
       startPoint = updatedSegment1.connections.start.position.clone();
       endPoints.push(updatedSegment1.connections.end.position.clone());
     } else {
@@ -99,7 +123,10 @@ export class RoadNetworkBuilder {
       startPoint = updatedSegment1.position.clone();
     }
 
-    if (isStraightSegment(updatedSegment2) || isCurvedSegment(updatedSegment2)) {
+    if (
+      isStraightSegment(updatedSegment2) ||
+      isCurvedSegment(updatedSegment2)
+    ) {
       endPoints.push(updatedSegment2.connections.end.position.clone());
     }
 

@@ -2,8 +2,15 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stats } from '@react-three/drei';
 import { Suspense, useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { RoadNetworkComponent, RoadNetworkBuilder } from '@cyclepath/road-system';
-import { useWebGLContextHandler, checkWebGLSupport } from '@cyclepath/road-system';
+import {
+  RoadNetworkComponent,
+  RoadNetworkBuilder,
+  StandaloneTextureDebugger,
+} from '@cyclepath/road-system';
+import {
+  useWebGLContextHandler,
+  checkWebGLSupport,
+} from '@cyclepath/road-system';
 
 import ObstaclesGenerator from './ObstaclesGenerator';
 
@@ -27,11 +34,25 @@ const WebGLContextManager = () => {
       if (process.env.NODE_ENV === 'development') {
         const logMemoryInfo = () => {
           if ('performance' in window && 'memory' in performance) {
-            const memoryInfo = (performance as any).memory;
+            const memoryInfo = (
+              performance as Performance & {
+                memory: {
+                  totalJSHeapSize: number;
+                  usedJSHeapSize: number;
+                  jsHeapSizeLimit: number;
+                };
+              }
+            ).memory;
             console.log('Memory usage:', {
-              totalJSHeapSize: `${Math.round(memoryInfo.totalJSHeapSize / (1024 * 1024))}MB`,
-              usedJSHeapSize: `${Math.round(memoryInfo.usedJSHeapSize / (1024 * 1024))}MB`,
-              jsHeapSizeLimit: `${Math.round(memoryInfo.jsHeapSizeLimit / (1024 * 1024))}MB`,
+              totalJSHeapSize: `${Math.round(
+                memoryInfo.totalJSHeapSize / (1024 * 1024)
+              )}MB`,
+              usedJSHeapSize: `${Math.round(
+                memoryInfo.usedJSHeapSize / (1024 * 1024)
+              )}MB`,
+              jsHeapSizeLimit: `${Math.round(
+                memoryInfo.jsHeapSizeLimit / (1024 * 1024)
+              )}MB`,
             });
           }
         };
@@ -45,6 +66,8 @@ const WebGLContextManager = () => {
 
       return cleanup;
     }
+
+    return undefined; // Explicitly return undefined when no cleanup is needed
   }, [gl, registerRenderer]);
 
   return null;
@@ -62,8 +85,8 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [showPerformanceStats, setShowPerformanceStats] = useState(
     process.env.NODE_ENV === 'development'
   );
-  // Add debug mode state - enabled by default in development mode
-  const [debugMode, setDebugMode] = useState(process.env.NODE_ENV === 'development');
+  // Always initialize debug mode as false
+  const [debugMode, setDebugMode] = useState(false);
 
   // Handle scene loaded event
   const handleSceneLoaded = () => {
@@ -76,11 +99,11 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
     if (process.env.NODE_ENV === 'development') {
       const handleKeyPress = (e: KeyboardEvent) => {
         if (e.key === 'p' || e.key === 'P') {
-          setShowPerformanceStats(prev => !prev);
+          setShowPerformanceStats((prev) => !prev);
         }
         // Add debug mode toggle with 'D' key
         if (e.key === 'd' || e.key === 'D') {
-          setDebugMode(prev => !prev);
+          setDebugMode((prev) => !prev);
           console.log('Road debug mode:', !debugMode ? 'enabled' : 'disabled');
         }
       };
@@ -88,14 +111,11 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
       window.addEventListener('keydown', handleKeyPress);
       return () => window.removeEventListener('keydown', handleKeyPress);
     }
+    return undefined; // Explicitly return undefined for non-development environments
   }, [debugMode]);
 
   return (
-    <div
-      className="w-full h-screen"
-      role="region"
-      aria-label="Game Scene"
-    >
+    <div className="w-full h-screen" role="region" aria-label="Game Scene">
       <Canvas
         camera={{ position: [0, 5, 10], fov: 50 }}
         gl={{
@@ -106,7 +126,7 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
           depth: true,
           alpha: false,
           // Helps with context restoration
-          preserveDrawingBuffer: true
+          preserveDrawingBuffer: true,
         }}
         shadows
       >
@@ -148,6 +168,9 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
           {showPerformanceStats && <Stats />}
         </Suspense>
       </Canvas>
+
+      {/* Add the standalone texture debugger outside of the Canvas */}
+      <StandaloneTextureDebugger />
     </div>
   );
 };

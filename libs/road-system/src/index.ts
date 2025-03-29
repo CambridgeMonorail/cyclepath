@@ -1,17 +1,19 @@
+// Export components
+export * from './lib/road-system';
+export * from './lib/components/RoadNetwork';
+
 // Export types
 export * from './lib/types/road.types';
-
-// Export factories
-export * from './lib/factories/road-segment.factory';
 
 // Export builders
 export * from './lib/builders/road-network.builder';
 
-// Export components
-export * from './lib/road-system';
-export { RoadNetworkComponent } from './lib/components/RoadNetwork';
-export * from './lib/components/RoadSegmentMesh';
+// Export factories
+export * from './lib/factories/road-segment.factory';
 
 // Export utilities
-export { RoadTextureLoader } from './lib/utils/road-texture.utils';
-export { useWebGLContextHandler, checkWebGLSupport } from './lib/utils/webgl-context.utils';
+export * from './lib/utils/webgl-context.utils';
+export * from './lib/utils/road-texture.utils'; // Export for debugging purposes
+export * from './lib/components/TextureDebugger'; // Export for debugging
+export * from './lib/components/TextureDebugOverlay'; // Export for debugging
+export { default as StandaloneTextureDebugger } from './lib/components/StandaloneTextureDebugger';
