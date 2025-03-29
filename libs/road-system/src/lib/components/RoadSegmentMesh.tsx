@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import {
   RoadSegment,
@@ -30,12 +30,73 @@ export const RoadSegmentMesh = ({
   const [isHovered, setIsHovered] = useState(false);
   const { width, length, position, rotation } = segment;
   const textures = useRoadTextures(segment);
-  const [materialReady, setMaterialReady] = useState(false);
   const [texturesLoaded, setTexturesLoaded] = useState(false);
 
   // Store the material reference for updates
   const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const markingsMaterialRef = useRef<THREE.MeshBasicMaterial | null>(null);
+
+  // Function to update material with textures
+  const updateMaterial = useCallback(
+    (material: THREE.MeshStandardMaterial) => {
+      // CRITICAL: Ensure we directly apply textures to the material instance
+      if (textures.map) {
+        material.map = textures.map;
+        material.map.colorSpace = THREE.SRGBColorSpace;
+        material.map.wrapS = THREE.RepeatWrapping;
+        material.map.wrapT = THREE.RepeatWrapping;
+
+        // Calculate repeat based on road dimensions for consistent texture scaling
+        const repeatX = 1;
+        const repeatY = length / width; // Adjust repeat based on road dimensions
+        material.map.repeat.set(repeatX, repeatY);
+
+        // Make sure we clear any base color that might override the texture
+        material.color.set(0xffffff);
+
+        console.log(
+          `Base texture for segment ${segment.id} configured with repeat:`,
+          `${repeatX}x${repeatY}`
+        );
+      }
+
+      // Apply normal map if available
+      if (textures.normalMap) {
+        material.normalMap = textures.normalMap;
+        material.normalMap.wrapS = THREE.RepeatWrapping;
+        material.normalMap.wrapT = THREE.RepeatWrapping;
+        material.normalScale.set(1, 1); // Ensure normal scale is set
+        if (textures.map?.repeat) {
+          material.normalMap.repeat.copy(textures.map.repeat);
+        }
+      }
+
+      // Apply roughness map if available
+      if (textures.roughnessMap) {
+        material.roughnessMap = textures.roughnessMap;
+        material.roughnessMap.wrapS = THREE.RepeatWrapping;
+        material.roughnessMap.wrapT = THREE.RepeatWrapping;
+        if (textures.map?.repeat) {
+          material.roughnessMap.repeat.copy(textures.map.repeat);
+        }
+      }
+
+      // Set PBR material properties for realistic appearance
+      material.roughness = 0.8;
+      material.metalness = 0.2;
+      material.side = THREE.DoubleSide;
+
+      // Setting these flags is crucial for the textures to appear
+      material.needsUpdate = true;
+
+      if (textures.map) textures.map.needsUpdate = true;
+      if (textures.normalMap) textures.normalMap.needsUpdate = true;
+      if (textures.roughnessMap) textures.roughnessMap.needsUpdate = true;
+
+      console.log(`Updated material textures for segment ${segment.id}`);
+    },
+    [textures, width, length, segment.id]
+  );
 
   // Verify texture loading status and log debug info
   useEffect(() => {
@@ -146,66 +207,7 @@ export const RoadSegmentMesh = ({
     }
 
     return undefined;
-  }, [textures.map, segment.id, texturesLoaded]);
-
-  // Function to update material with textures
-  const updateMaterial = (material: THREE.MeshStandardMaterial) => {
-    // CRITICAL: Ensure we directly apply textures to the material instance
-    if (textures.map) {
-      material.map = textures.map;
-      material.map.colorSpace = THREE.SRGBColorSpace;
-      material.map.wrapS = THREE.RepeatWrapping;
-      material.map.wrapT = THREE.RepeatWrapping;
-
-      // Calculate repeat based on road dimensions for consistent texture scaling
-      const repeatX = 1;
-      const repeatY = length / width; // Adjust repeat based on road dimensions
-      material.map.repeat.set(repeatX, repeatY);
-
-      // Make sure we clear any base color that might override the texture
-      material.color.set(0xffffff);
-
-      console.log(
-        `Base texture for segment ${segment.id} configured with repeat:`,
-        `${repeatX}x${repeatY}`
-      );
-    }
-
-    // Apply normal map if available
-    if (textures.normalMap) {
-      material.normalMap = textures.normalMap;
-      material.normalMap.wrapS = THREE.RepeatWrapping;
-      material.normalMap.wrapT = THREE.RepeatWrapping;
-      material.normalScale.set(1, 1); // Ensure normal scale is set
-      if (textures.map?.repeat) {
-        material.normalMap.repeat.copy(textures.map.repeat);
-      }
-    }
-
-    // Apply roughness map if available
-    if (textures.roughnessMap) {
-      material.roughnessMap = textures.roughnessMap;
-      material.roughnessMap.wrapS = THREE.RepeatWrapping;
-      material.roughnessMap.wrapT = THREE.RepeatWrapping;
-      if (textures.map?.repeat) {
-        material.roughnessMap.repeat.copy(textures.map.repeat);
-      }
-    }
-
-    // Set PBR material properties for realistic appearance
-    material.roughness = 0.8;
-    material.metalness = 0.2;
-    material.side = THREE.DoubleSide;
-
-    // Setting these flags is crucial for the textures to appear
-    material.needsUpdate = true;
-
-    if (textures.map) textures.map.needsUpdate = true;
-    if (textures.normalMap) textures.normalMap.needsUpdate = true;
-    if (textures.roughnessMap) textures.roughnessMap.needsUpdate = true;
-
-    console.log(`Updated material textures for segment ${segment.id}`);
-  };
+  }, [textures.map, segment.id, texturesLoaded, updateMaterial]);
 
   // Configure road markings
   useEffect(() => {
@@ -330,8 +332,7 @@ export const RoadSegmentMesh = ({
             <bufferGeometry>
               <bufferAttribute
                 attach="attributes-position"
-                count={2}
-                array={
+                args={[
                   new Float32Array([
                     start.position.x,
                     start.position.y + 0.2,
@@ -339,9 +340,9 @@ export const RoadSegmentMesh = ({
                     end.position.x,
                     end.position.y + 0.2,
                     end.position.z,
-                  ])
-                }
-                itemSize={3}
+                  ]),
+                  3,
+                ]}
               />
             </bufferGeometry>
             <lineBasicMaterial color="yellow" linewidth={2} />
