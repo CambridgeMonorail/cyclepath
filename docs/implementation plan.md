@@ -54,6 +54,24 @@ A working browser-based prototype where a player can start a race, move the bike
   - [ ] Visual validation tools
   - [ ] Performance benchmarks
 
+- [ ] Investigate and resolve road segment rendering issues:
+  - [ ] Diagnose texture rendering problems (textures load but don't display)
+  - [ ] Fix debug visualization placement and visibility
+  - [ ] Resolve coordinate space issues between road segments and debug elements
+  - [ ] Ensure proper texture encoding and configuration (sRGBEncoding, needsUpdate)
+  - [ ] Validate mesh rotation and orientation relative to world coordinates
+  - [ ] Create visual debugging tools for connection points and segment boundaries
+  - [ ] Implement z-ordering fixes for overlapping road elements
+  - [ ] Document proper 3D coordinate usage across the road system
+
+- [ ] Potential next steps:
+  - [ ] Investigate why red spheres (end connection markers) are not visible
+  - [ ] Validate the placement of yellow connection lines and green arrows
+  - [ ] Ensure debug visualizations are correctly positioned relative to road segments
+  - [ ] Check for potential z-fighting issues affecting debug elements
+  - [ ] Add fallback mechanisms for missing textures or debug elements
+  - [ ] Improve logging to capture rendering issues in development mode
+
 ### 2. Enhanced Course & Obstacles
 
 #### Course Data Structure and Generation

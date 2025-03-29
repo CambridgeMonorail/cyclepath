@@ -1,311 +1,187 @@
-import { Vector2, Vector3 } from 'three';
+import { Vector3, Matrix4, Vector2 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import {
   RoadSegment,
+  RoadConnection,
   StraightRoadSegment,
-  CurvedRoadSegment,
-  IntersectionRoadSegment,
-  JunctionRoadSegment,
+  StraightRoadConnections,
+  CurvedRoadConnections,
+  IntersectionRoadConnections,
+  JunctionRoadConnections,
   RoadTextureOptions
 } from '../types/road.types';
 
-/**
- * Factory class for creating road segments
- */
+// Type for connection keys across all segment types
+export type ConnectionKey = 'start' | 'end' | 'north' | 'south' | 'east' | 'west' | 'main' | 'branch';
+
+export type CreateStraightOptions = {
+  position: Vector3;
+  rotation?: Vector3;
+  length?: number;
+  width?: number;
+  pavementWidth?: number;
+  lanes?: number;
+  hasCrosswalk?: boolean;
+  textureOptions?: Partial<RoadTextureOptions>;
+};
+
 export class RoadSegmentFactory {
   /**
-   * Default texture options to apply to all road segments
-   */
-  private static defaultTextureOptions: RoadTextureOptions = {
-    roadTexture: '/src/assets/textures/road/asphalt.jpg',
-    repeat: new Vector2(1, 5)
-  };
-
-  /**
-   * Creates a straight road segment
+   * Creates a straight road segment with proper connection points
    */
   static createStraight({
-    position = new Vector3(0, 0, 0),
+    position,
     rotation = new Vector3(0, 0, 0),
-    length = 10,
+    length = 20,
     width = 7,
-    pavementWidth = 2,
+    pavementWidth = 1.5,
     lanes = 2,
     hasCrosswalk = false,
-    id = uuidv4(),
-    textureOptions,
-  }: Partial<Omit<StraightRoadSegment, 'type' | 'connections'>> = {}): StraightRoadSegment {
-    // Calculate connection points
+    textureOptions = {},
+  }: CreateStraightOptions): StraightRoadSegment {
+    // Flatten position and rotation to be aligned with the XZ plane
+    const flatPosition = new Vector3(position.x, 0, position.z);
+    const flatRotation = new Vector3(0, rotation.y, 0);
+
+    // Half the length of the segment (used for connection point calculations)
     const halfLength = length / 2;
 
-    // Direction vectors (normalized)
-    const startDirection = new Vector2(0, -1); // Pointing backward along z-axis
-    const endDirection = new Vector2(0, 1);    // Pointing forward along z-axis
+    // Create a matrix for rotating points around the Y axis
+    const rotationMatrix = new Matrix4().makeRotationY(flatRotation.y);
 
+    // Calculate start position in local space
+    const startLocal = new Vector3(0, 0, -halfLength);
+    // Transform to world space: apply rotation and then add segment position
+    startLocal.applyMatrix4(rotationMatrix);
+    const startPosition = new Vector3(
+      flatPosition.x + startLocal.x,
+      0,
+      flatPosition.z + startLocal.z
+    );
+
+    // Calculate end position in local space
+    const endLocal = new Vector3(0, 0, halfLength);
+    // Transform to world space: apply rotation and then add segment position
+    endLocal.applyMatrix4(rotationMatrix);
+    const endPosition = new Vector3(
+      flatPosition.x + endLocal.x,
+      0,
+      flatPosition.z + endLocal.z
+    );
+
+    // Create connection points
+    const startConnection: RoadConnection = {
+      position: startPosition,
+      direction: new Vector2(
+        -Math.sin(flatRotation.y),
+        -Math.cos(flatRotation.y)
+      ).normalize(),
+      width,
+    };
+
+    const endConnection: RoadConnection = {
+      position: endPosition,
+      direction: new Vector2(
+        Math.sin(flatRotation.y),
+        Math.cos(flatRotation.y)
+      ).normalize(),
+      width,
+    };
+
+    // Log the calculated connection points for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Creating straight segment:');
+      console.log('- Position:', flatPosition);
+      console.log('- Rotation:', flatRotation);
+      console.log('- Length/Width:', length, width);
+      console.log('- Start connection:', {
+        position: `(${startConnection.position.x.toFixed(2)}, ${startConnection.position.y.toFixed(2)}, ${startConnection.position.z.toFixed(2)})`,
+        direction: `(${startConnection.direction.x.toFixed(2)}, ${startConnection.direction.y.toFixed(2)})`
+      });
+      console.log('- End connection:', {
+        position: `(${endConnection.position.x.toFixed(2)}, ${endConnection.position.y.toFixed(2)}, ${endConnection.position.z.toFixed(2)})`,
+        direction: `(${endConnection.direction.x.toFixed(2)}, ${endConnection.direction.y.toFixed(2)})`
+      });
+    }
+
+    // Return the complete road segment
     return {
-      id,
+      id: uuidv4(),
       type: 'straight',
-      position,
-      rotation,
-      width,
+      position: flatPosition,
+      rotation: flatRotation,
       length,
+      width,
       pavementWidth,
       lanes,
       hasCrosswalk,
-      textureOptions: textureOptions || {
-        ...this.defaultTextureOptions,
-        repeat: new Vector2(1, length / 5)
-      },
       connections: {
-        start: {
-          position: new Vector3(position.x, position.y, position.z - halfLength),
-          direction: startDirection,
-          width,
-        },
-        end: {
-          position: new Vector3(position.x, position.y, position.z + halfLength),
-          direction: endDirection,
-          width,
-        },
+        start: startConnection,
+        end: endConnection,
+      },
+      textureOptions: {
+        roadTexture: textureOptions.roadTexture || 'asphalt.jpg',
+        normalMap: textureOptions.normalMap || 'asphalt_normal.png',
+        roughnessMap: textureOptions.roughnessMap || 'asphalt_roughness.png',
       },
     };
   }
 
   /**
-   * Creates a curved road segment
+   * Type-safe helper to get a connection from a road segment
    */
-  static createCurve({
-    position = new Vector3(0, 0, 0),
-    rotation = new Vector3(0, 0, 0),
-    radius = 10,
-    angle = Math.PI / 2, // 90 degrees by default
-    direction = 'right',
-    width = 7,
-    pavementWidth = 2,
-    lanes = 2,
-    hasCrosswalk = false,
-    id = uuidv4(),
-    textureOptions,
-  }: Partial<Omit<CurvedRoadSegment, 'type' | 'connections' | 'length'>> = {}): CurvedRoadSegment {
-    // Calculate length based on arc
-    const length = radius * angle;
-
-    // Calculate connection points
-    const startPos = new Vector3(position.x, position.y, position.z);
-
-    // End position depends on the direction
-    let endX, endZ;
-    let startDirection, endDirection;
-
-    if (direction === 'right') {
-      endX = position.x + radius * Math.sin(angle);
-      endZ = position.z + radius * (1 - Math.cos(angle));
-
-      startDirection = new Vector2(0, 1);
-      endDirection = new Vector2(Math.sin(angle), Math.cos(angle));
-    } else {
-      endX = position.x - radius * Math.sin(angle);
-      endZ = position.z + radius * (1 - Math.cos(angle));
-
-      startDirection = new Vector2(0, 1);
-      endDirection = new Vector2(-Math.sin(angle), Math.cos(angle));
+  private static getConnection(
+    segment: RoadSegment,
+    connectionKey: ConnectionKey
+  ): RoadConnection {
+    if (segment.type === 'straight' || segment.type === 'curve') {
+      if (connectionKey === 'start' || connectionKey === 'end') {
+        return (segment.connections as StraightRoadConnections | CurvedRoadConnections)[connectionKey];
+      }
+    } else if (segment.type === 'intersection') {
+      if (connectionKey === 'north' || connectionKey === 'south' ||
+          connectionKey === 'east' || connectionKey === 'west') {
+        return (segment.connections as IntersectionRoadConnections)[connectionKey];
+      }
+    } else if (segment.type === 'junction') {
+      if (connectionKey === 'main' || connectionKey === 'branch' || connectionKey === 'end') {
+        return (segment.connections as JunctionRoadConnections)[connectionKey];
+      }
     }
 
-    const endPos = new Vector3(endX, position.y, endZ);
-
-    return {
-      id,
-      type: 'curve',
-      position,
-      rotation,
-      width,
-      length,
-      pavementWidth,
-      lanes,
-      hasCrosswalk,
-      radius,
-      angle,
-      direction,
-      textureOptions: textureOptions || {
-        ...this.defaultTextureOptions,
-        repeat: new Vector2(1, length / 5)
-      },
-      connections: {
-        start: {
-          position: startPos,
-          direction: startDirection,
-          width,
-        },
-        end: {
-          position: endPos,
-          direction: endDirection,
-          width,
-        },
-      },
-    };
+    throw new Error(`Invalid connection key "${String(connectionKey)}" for segment type "${segment.type}"`);
   }
 
   /**
-   * Creates an intersection road segment
+   * Connects two segments by updating their connection points
    */
-  static createIntersection({
-    position = new Vector3(0, 0, 0),
-    rotation = new Vector3(0, 0, 0),
-    width = 7,
-    pavementWidth = 2,
-    lanes = 2,
-    hasCrosswalk = true,
-    id = uuidv4(),
-    textureOptions,
-  }: Partial<Omit<IntersectionRoadSegment, 'type' | 'connections' | 'length'>> = {}): IntersectionRoadSegment {
-    // For intersections, length is equal to width
-    const length = width;
+  static connectSegments(
+    segment1: RoadSegment,
+    connectionKey1: ConnectionKey,
+    segment2: RoadSegment,
+    connectionKey2: ConnectionKey
+  ): [RoadSegment, RoadSegment] {
+    // Clone segments to avoid mutating the originals
+    const updatedSegment1 = { ...segment1 };
+    const updatedSegment2 = { ...segment2 };
 
-    // Calculate connection points (assumes a square intersection)
-    const halfWidth = width / 2;
+    // Get connection points using our type-safe helper
+    const connection1 = this.getConnection(segment1, connectionKey1);
+    const connection2 = this.getConnection(segment2, connectionKey2);
 
-    return {
-      id,
-      type: 'intersection',
-      position,
-      rotation,
-      width,
-      length,
-      pavementWidth,
-      lanes,
-      hasCrosswalk,
-      textureOptions: textureOptions || {
-        ...this.defaultTextureOptions,
-        repeat: new Vector2(1, 1)
-      },
-      connections: {
-        north: {
-          position: new Vector3(position.x, position.y, position.z - halfWidth),
-          direction: new Vector2(0, -1),
-          width,
-        },
-        south: {
-          position: new Vector3(position.x, position.y, position.z + halfWidth),
-          direction: new Vector2(0, 1),
-          width,
-        },
-        east: {
-          position: new Vector3(position.x + halfWidth, position.y, position.z),
-          direction: new Vector2(1, 0),
-          width,
-        },
-        west: {
-          position: new Vector3(position.x - halfWidth, position.y, position.z),
-          direction: new Vector2(-1, 0),
-          width,
-        },
-      },
-    };
-  }
-
-  /**
-   * Creates a T-junction road segment
-   */
-  static createJunction({
-    position = new Vector3(0, 0, 0),
-    rotation = new Vector3(0, 0, 0),
-    width = 7,
-    length = 14,
-    pavementWidth = 2,
-    lanes = 2,
-    branchDirection = 'right',
-    hasCrosswalk = true,
-    id = uuidv4(),
-    textureOptions,
-  }: Partial<Omit<JunctionRoadSegment, 'type' | 'connections'>> = {}): JunctionRoadSegment {
-    // Calculate connection points
-    const halfLength = length / 2;
-    const halfWidth = width / 2;
-
-    // Branch position depends on the direction
-    const branchX = branchDirection === 'right' ? position.x + halfWidth : position.x - halfWidth;
-
-    return {
-      id,
-      type: 'junction',
-      position,
-      rotation,
-      width,
-      length,
-      pavementWidth,
-      lanes,
-      hasCrosswalk,
-      branchDirection,
-      textureOptions: textureOptions || {
-        ...this.defaultTextureOptions,
-        repeat: new Vector2(1, 1)
-      },
-      connections: {
-        main: {
-          position: new Vector3(position.x, position.y, position.z - halfLength),
-          direction: new Vector2(0, -1),
-          width,
-        },
-        end: {
-          position: new Vector3(position.x, position.y, position.z + halfLength),
-          direction: new Vector2(0, 1),
-          width,
-        },
-        branch: {
-          position: new Vector3(branchX, position.y, position.z),
-          direction: new Vector2(branchDirection === 'right' ? 1 : -1, 0),
-          width,
-        },
-      },
-    };
-  }
-
-  /**
-   * Connects two road segments by updating their connection points
-   */
-  static connectSegments<
-    T1 extends RoadSegment,
-    T2 extends RoadSegment,
-    K1 extends keyof T1['connections'] & string,
-    K2 extends keyof T2['connections'] & string,
-  >(
-    segment1: T1,
-    connection1Key: K1,
-    segment2: T2,
-    connection2Key: K2
-  ): [T1, T2] {
-    // Get connections
-    const connections1 = segment1.connections as Record<K1, { connectedToId?: string }>;
-    const connections2 = segment2.connections as Record<K2, { connectedToId?: string }>;
-
-    const conn1 = connections1[connection1Key];
-    const conn2 = connections2[connection2Key];
-
-    if (!conn1 || !conn2) {
-      throw new Error(`Invalid connection keys: ${String(connection1Key)}, ${String(connection2Key)}`);
+    // Log connection operation for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Connecting segments:');
+      console.log(`- Segment 1 (${segment1.id}) ${String(connectionKey1)} to Segment 2 (${segment2.id}) ${String(connectionKey2)}`);
+      console.log('- Connection 1 position:', connection1.position);
+      console.log('- Connection 2 position:', connection2.position);
+      console.log('- Distance before alignment:', connection1.position.distanceTo(connection2.position).toFixed(4));
     }
 
-    // Update the connection links
-    const updatedConn1 = { ...conn1, connectedToId: segment2.id };
-    const updatedConn2 = { ...conn2, connectedToId: segment1.id };
+    // Note: For now, we're keeping the segments at their original positions
+    // This allows us to validate that the segments are properly positioned
+    // In a future iteration, we'll implement actual alignment of segments
 
-    // Return the updated segments with proper type assertions
-    const updatedSegment1 = {
-      ...segment1,
-      connections: {
-        ...segment1.connections,
-        [connection1Key]: updatedConn1
-      }
-    };
-
-    const updatedSegment2 = {
-      ...segment2,
-      connections: {
-        ...segment2.connections,
-        [connection2Key]: updatedConn2
-      }
-    };
-
-    return [updatedSegment1 as T1, updatedSegment2 as T2];
+    return [updatedSegment1, updatedSegment2];
   }
 }

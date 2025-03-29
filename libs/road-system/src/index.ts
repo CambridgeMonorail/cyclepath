@@ -14,4 +14,4 @@ export * from './lib/components/RoadSegmentMesh';
 
 // Export utilities
 export { RoadTextureLoader } from './lib/utils/road-texture.utils';
-export { useWebGLContextHandler } from './lib/utils/webgl-context.utils';
+export { useWebGLContextHandler, checkWebGLSupport } from './lib/utils/webgl-context.utils';

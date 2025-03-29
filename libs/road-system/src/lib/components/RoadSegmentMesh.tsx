@@ -1,145 +1,209 @@
-import { useMemo, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { RoadSegment } from '../types/road.types';
+import {
+  RoadSegment,
+  StraightRoadSegment,
+  CurvedRoadSegment,
+  IntersectionRoadSegment,
+  JunctionRoadSegment
+} from '../types/road.types';
 import { useRoadTextures } from '../utils/use-road-textures';
-import { extend } from '@react-three/fiber';
-
-// Extend THREE elements to JSX
-extend({
-  Mesh: THREE.Mesh,
-  MeshStandardMaterial: THREE.MeshStandardMaterial
-});
 
 type RoadSegmentMeshProps = {
   segment: RoadSegment;
+  debug?: boolean;
 };
 
-export const RoadSegmentMesh = ({ segment }: RoadSegmentMeshProps) => {
-  // Load textures for this road segment
+export const RoadSegmentMesh = ({ segment, debug = false }: RoadSegmentMeshProps) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const startMarkerRef = useRef<THREE.Mesh>(null);
+  const endMarkerRef = useRef<THREE.Mesh>(null);
+  const arrowHelperRef = useRef<THREE.ArrowHelper>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const { width, length, position, rotation } = segment;
   const textures = useRoadTextures(segment);
 
-  // Generate geometry based on segment type
-  const geometry = useMemo(() => {
-    switch (segment.type) {
-      case 'straight':
-        return new THREE.PlaneGeometry(segment.width, segment.length);
-      case 'curve': {
-        const curve = new THREE.EllipseCurve(
-          0, 0,
-          segment.radius, segment.radius,
-          0, segment.angle,
-          false,
-          0
-        );
-        const points = curve.getPoints(50);
-        const shape = new THREE.Shape();
-        shape.moveTo(-segment.width / 2, 0);
-        shape.lineTo(segment.width / 2, 0);
-        const geometry = new THREE.ExtrudeGeometry(shape, {
-          steps: 50,
-          bevelEnabled: false,
-          extrudePath: new THREE.CatmullRomCurve3(
-            points.map(p => new THREE.Vector3(p.x, 0, p.y))
-          )
-        });
-        return geometry;
-      }
-      case 'intersection':
-        return new THREE.PlaneGeometry(segment.width, segment.width);
-      case 'junction': {
-        const shape = new THREE.Shape();
-        const hw = segment.width / 2;
-        const hl = segment.length / 2;
-        shape.moveTo(-hw, -hl);
-        shape.lineTo(hw, -hl);
-        shape.lineTo(hw, hl);
-        shape.lineTo(-hw, hl);
-        if (segment.branchDirection === 'right') {
-          shape.moveTo(hw, -hw);
-          shape.lineTo(hw + segment.width, -hw);
-          shape.lineTo(hw + segment.width, hw);
-          shape.lineTo(hw, hw);
-        } else {
-          shape.moveTo(-hw, -hw);
-          shape.lineTo(-hw - segment.width, -hw);
-          shape.lineTo(-hw - segment.width, hw);
-          shape.lineTo(-hw, hw);
-        }
-        return new THREE.ShapeGeometry(shape);
-      }
-      default:
-        return new THREE.PlaneGeometry(1, 1);
-    }
-  }, [segment]);
-
-  // Generate UVs for proper texture mapping if needed
+  // Log when segment is rendered
   useEffect(() => {
-    if ((segment.type === 'curve' || segment.type === 'junction') && textures.map) {
-      // For complex geometries, we need to adjust UVs
-      geometry.computeVertexNormals();
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Rendering RoadSegment ${segment.id} at position:`,
+        position.toArray().map(v => v.toFixed(2)).join(', '),
+        'rotation:', rotation.toArray().map(v => (v * 180 / Math.PI).toFixed(2)).join(', '),
+        'dimensions:', `${width}x${length}`);
 
-      const positions = geometry.attributes.position.array;
-      const count = geometry.attributes.position.count;
-      const uvs = new Float32Array(count * 2);
+      // Debug texture loading
+      console.log(`Textures for segment ${segment.id}:`, {
+        baseTexture: textures.map ? 'Loaded' : 'Missing',
+        normalMap: textures.normalMap ? 'Loaded' : 'Missing',
+        roughnessMap: textures.roughnessMap ? 'Loaded' : 'Missing'
+      });
+    }
+  }, [segment.id, position, rotation, width, length, textures]);
 
-      // Calculate bounding box for UV mapping
-      geometry.computeBoundingBox();
-      const box = geometry.boundingBox;
+  // Ensure textures are properly configured
+  useEffect(() => {
+    if (textures.map) {
+      textures.map.needsUpdate = true;
+      textures.map.colorSpace = THREE.SRGBColorSpace;
+    }
+    if (textures.normalMap) {
+      textures.normalMap.needsUpdate = true;
+    }
+    if (textures.roughnessMap) {
+      textures.roughnessMap.needsUpdate = true;
+    }
+  }, [textures]);
 
-      if (box) {
-        const size = new THREE.Vector3();
-        box.getSize(size);
+  // Visualization debugging helpers
+  useEffect(() => {
+    if (debug && meshRef.current) {
+      console.log(`Setting up debug visualizations for segment ${segment.id}`);
 
-        // Generate new UVs based on position
-        for (let i = 0; i < count; i++) {
-          const x = positions[i * 3];
-          const z = positions[i * 3 + 2];
+      // Handle different segment types with their connection structures
+      if (isStraightSegment(segment) || isCurvedSegment(segment)) {
+        const startConnection = segment.connections.start;
+        const endConnection = segment.connections.end;
 
-          // Map position to UV (0-1 range)
-          const u = (x - box.min.x) / size.x;
-          const v = (z - box.min.z) / size.z;
-
-          uvs[i * 2] = u;
-          uvs[i * 2 + 1] = v;
+        if (startMarkerRef.current) {
+          startMarkerRef.current.position.copy(startConnection.position);
+          console.log(`Start marker positioned at:`, startConnection.position);
         }
 
-        geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        if (endMarkerRef.current) {
+          endMarkerRef.current.position.copy(endConnection.position);
+          console.log(`End marker positioned at:`, endConnection.position);
+        }
+      }
+
+      // Create direction arrow for the segment
+      if (meshRef.current) {
+        // Remove old arrow if it exists
+        if (arrowHelperRef.current) {
+          meshRef.current.remove(arrowHelperRef.current);
+        }
+
+        // Create new arrow helper showing segment direction
+        const center = new THREE.Vector3(0, 0.5, 0);
+        const direction = new THREE.Vector3(0, 0, -1).normalize();
+        const arrowHelper = new THREE.ArrowHelper(
+          direction,
+          center,
+          length / 2,
+          0x00ff00,
+          1,
+          0.5
+        );
+        arrowHelperRef.current = arrowHelper;
+        meshRef.current.add(arrowHelper);
+        console.log(`Direction arrow added to segment ${segment.id}`);
       }
     }
-  }, [geometry, segment.type, textures.map]);
+  }, [segment, debug, length]);
+
+  // Animation for hover effect
+  useFrame(() => {
+    if (isHovered && meshRef.current) {
+      // Simple hover animation
+      const time = Date.now() * 0.001;
+      const material = meshRef.current.material as THREE.MeshStandardMaterial;
+      if (material && 'emissive' in material) {
+        material.emissive = new THREE.Color(0x333333).multiplyScalar(0.5 + Math.sin(time * 2) * 0.25);
+      }
+    }
+  });
+
+  // Helper function to render debug visualization based on segment type
+  const renderDebugVisuals = () => {
+    if (!debug) return null;
+
+    console.log(`Rendering debug visuals for segment ${segment.id}, type: ${segment.type}`);
+
+    if (isStraightSegment(segment) || isCurvedSegment(segment)) {
+      const { start, end } = segment.connections;
+      return (
+        <>
+          {/* Start connection marker */}
+          <mesh ref={startMarkerRef} position={start.position} scale={[1, 1, 1]}>
+            <sphereGeometry args={[0.8, 16, 16]} />
+            <meshBasicMaterial color="green" />
+          </mesh>
+
+          {/* End connection marker */}
+          <mesh ref={endMarkerRef} position={end.position} scale={[1, 1, 1]}>
+            <sphereGeometry args={[0.8, 16, 16]} />
+            <meshBasicMaterial color="red" />
+          </mesh>
+
+          {/* Connection line */}
+          <line>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                args={[new Float32Array([
+                  start.position.x, start.position.y, start.position.z,
+                  end.position.x, end.position.y, end.position.z,
+                ]), 3]}
+                count={2}
+                itemSize={3}
+              />
+            </bufferGeometry>
+            <lineBasicMaterial color="yellow" linewidth={2} />
+          </line>
+        </>
+      );
+    } else if (isIntersectionSegment(segment)) {
+      // Special rendering for intersection segments could be added here
+      return null;
+    } else if (isJunctionSegment(segment)) {
+      // Special rendering for junction segments could be added here
+      return null;
+    }
+
+    return null;
+  };
 
   return (
-    <mesh
-      position={[segment.position.x, segment.position.y, segment.position.z]}
-      rotation={[
-        -Math.PI / 2,
-        segment.rotation.y,
-        segment.rotation.z
-      ]}
+    <group
+      position={[position.x, position.y, position.z]}
+      rotation={[rotation.x, rotation.y, rotation.z]}
     >
-      <primitive object={geometry} attach="geometry" />
-      <meshStandardMaterial
-        color={textures.map ? "#ffffff" : "#333333"}
-        map={textures.map}
-        normalMap={textures.normalMap}
-        roughnessMap={textures.roughnessMap}
-        roughness={0.8}
-        metalness={0.2}
-        side={THREE.DoubleSide}
-      />
+      <mesh
+        ref={meshRef}
+        onPointerOver={() => setIsHovered(true)}
+        onPointerOut={() => setIsHovered(false)}
+        receiveShadow
+        rotation={[-Math.PI / 2, 0, 0]} // Rotate the plane to lie flat on the XZ plane
+      >
+        <planeGeometry args={[width, length]} />
+        <meshStandardMaterial
+          color={textures.map ? undefined : "#555555"}
+          map={textures.map}
+          normalMap={textures.normalMap}
+          roughnessMap={textures.roughnessMap}
+          roughness={0.8}
+          metalness={0.2}
+          side={THREE.DoubleSide}
+          // Visualize the segment with bright color in debug mode
+          emissive={debug ? new THREE.Color(0x444444) : undefined}
+        />
+      </mesh>
 
-      {/* Add road markings if texture is available */}
-      {textures.markingsMap && (
-        <mesh position={[0, 0.01, 0]}>
-          <primitive object={geometry} attach="geometry" />
-          <meshStandardMaterial
-            transparent={true}
-            map={textures.markingsMap}
-            alphaTest={0.5}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      )}
-    </mesh>
+      {/* Debug visualization elements */}
+      {renderDebugVisuals()}
+    </group>
   );
 };
+
+// Type guard functions to check segment types
+const isStraightSegment = (segment: RoadSegment): segment is StraightRoadSegment =>
+  segment.type === 'straight';
+
+const isCurvedSegment = (segment: RoadSegment): segment is CurvedRoadSegment =>
+  segment.type === 'curve';
+
+const isIntersectionSegment = (segment: RoadSegment): segment is IntersectionRoadSegment =>
+  segment.type === 'intersection';
+
+const isJunctionSegment = (segment: RoadSegment): segment is JunctionRoadSegment =>
+  segment.type === 'junction';

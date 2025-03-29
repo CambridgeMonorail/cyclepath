@@ -1,86 +1,80 @@
-import { useEffect, useRef } from 'react';
-import { WebGLRenderer, Vector2 } from 'three';
-
-// Define the WebGLContextEvent interface since it's not included in standard TypeScript types
-interface WebGLContextEvent extends Event {
-  statusMessage: string;
-}
+import { useCallback } from 'react';
+import { WebGLRenderer } from 'three';
 
 /**
- * Custom hook to handle WebGL context loss gracefully
- * @returns Object containing the context loss handler methods
+ * Hook for handling WebGL context loss and restoration with Three.js
+ * Provides a lightweight wrapper around Three.js's built-in context handling
  */
 export const useWebGLContextHandler = () => {
-  const rendererRef = useRef<WebGLRenderer | null>(null);
+  /**
+   * Registers a Three.js renderer for context loss handling
+   * Sets up appropriate event listeners and fallbacks
+   */
+  const registerRenderer = useCallback((renderer: WebGLRenderer) => {
+    if (!renderer) return;
 
-  // Setup context loss handling
-  useEffect(() => {
+    // Log warning and handle context loss
     const handleContextLost = (event: Event) => {
-      (event as WebGLContextEvent).preventDefault?.();
-      console.warn('WebGL context lost. Attempting to restore...');
-
-      // Attempt to restore context after a brief delay
-      setTimeout(() => {
-        if (rendererRef.current) {
-          try {
-            // Force renderer to check if context is restored
-            rendererRef.current.setAnimationLoop(null);
-            rendererRef.current.setAnimationLoop(() => {
-              if (rendererRef.current) {
-                rendererRef.current.setAnimationLoop(null);
-                console.log('WebGL context restored successfully');
-              }
-            });
-          } catch (error) {
-            console.error('Failed to restore WebGL context:', error);
-          }
-        }
-      }, 500);
+      event.preventDefault?.();
+      console.warn('WebGL context lost. Three.js will handle restoration automatically.');
     };
 
+    // Log success when context is restored
     const handleContextRestored = () => {
-      console.log('WebGL context restored');
+      console.log('WebGL context restored successfully');
 
-      // Reload textures or perform other recovery operations here
-      if (rendererRef.current) {
-        // Force a scene refresh
-        const target = new Vector2();
-        rendererRef.current.getSize(target);
-        rendererRef.current.setSize(target.width, target.height, false);
+      // Force renderer to reset internal state
+      if (renderer) {
+        renderer.resetState();
       }
     };
 
+    // Add event listeners for context management
+    renderer.domElement.addEventListener('webglcontextlost', handleContextLost, false);
+    renderer.domElement.addEventListener('webglcontextrestored', handleContextRestored, false);
+
+    // Configure renderer for optimal stability
+    renderer.shadowMap.autoUpdate = true;
+
+    console.log('Three.js WebGL renderer configured for context handling');
+
+    // Return cleanup function
     return () => {
-      // Cleanup event listeners if needed
-      if (rendererRef.current?.domElement) {
-        rendererRef.current.domElement.removeEventListener('webglcontextlost', handleContextLost);
-        rendererRef.current.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
-      }
+      renderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
+      renderer.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
     };
   }, []);
 
-  /**
-   * Register a WebGL renderer to handle context loss
-   * @param renderer The Three.js WebGLRenderer instance
-   */
-  const registerRenderer = (renderer: WebGLRenderer) => {
-    if (!renderer) return;
+  return { registerRenderer };
+};
 
-    rendererRef.current = renderer;
+/**
+ * Basic helper to check WebGL support
+ * Uses Three.js's built-in capabilities
+ */
+export const checkWebGLSupport = (): {
+  isSupported: boolean;
+  message: string;
+} => {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
 
-    // Add event listeners for context loss/restore
-    renderer.domElement.addEventListener('webglcontextlost', (event: Event) => {
-      (event as WebGLContextEvent).preventDefault?.();
-      console.warn('WebGL context lost. Attempting to restore...');
-    }, false);
+    if (gl) {
+      return {
+        isSupported: true,
+        message: 'WebGL supported'
+      };
+    }
 
-    renderer.domElement.addEventListener('webglcontextrestored', () => {
-      console.log('WebGL context restored');
-    }, false);
-  };
-
-  return {
-    registerRenderer,
-    renderer: rendererRef.current
-  };
+    return {
+      isSupported: false,
+      message: 'WebGL not supported in this browser'
+    };
+  } catch (e) {
+    return {
+      isSupported: false,
+      message: `Error checking WebGL support: ${e}`
+    };
+  }
 };
