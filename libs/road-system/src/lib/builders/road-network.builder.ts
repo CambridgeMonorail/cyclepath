@@ -5,21 +5,15 @@ import {
   StraightRoadSegment,
   CurvedRoadSegment,
   RoadConnection,
-  RoadSegmentType,
   IntersectionRoadSegment,
   JunctionRoadSegment,
 } from '../types/road.types';
 import {
   RoadSegmentFactory,
   ConnectionKey,
-  CreateStraightOptions,
-  CreateCurvedOptions,
-  CreateIntersectionOptions,
-  CreateJunctionOptions,
 } from '../factories/road-segment.factory';
 import {
   RoadNetworkLayout,
-  RoadNetworkConnection,
   RoadNetworkLayouts,
 } from '../layouts/road-network.layouts';
 import { v4 as uuidv4 } from 'uuid';
@@ -148,6 +142,54 @@ export class RoadNetworkBuilder {
     toSegmentIndex: number,
     toConnectionKey: ConnectionKey
   ): RoadNetworkBuilder {
+    if (process.env.NODE_ENV === 'development') {
+      console.group(
+        `Connecting segments ${fromSegmentIndex} → ${toSegmentIndex}`
+      );
+
+      const fromSegment = this.segments[fromSegmentIndex];
+      const toSegment = this.segments[toSegmentIndex];
+
+      console.log('From segment:', {
+        id: fromSegment.id,
+        type: fromSegment.type,
+        position: `(${fromSegment.position.x.toFixed(
+          2
+        )}, ${fromSegment.position.y.toFixed(
+          2
+        )}, ${fromSegment.position.z.toFixed(2)})`,
+        connection: fromConnectionKey,
+      });
+
+      console.log('To segment:', {
+        id: toSegment.id,
+        type: toSegment.type,
+        position: `(${toSegment.position.x.toFixed(
+          2
+        )}, ${toSegment.position.y.toFixed(2)}, ${toSegment.position.z.toFixed(
+          2
+        )})`,
+        connection: toConnectionKey,
+      });
+
+      const fromConn = this.getConnection(fromSegment, fromConnectionKey);
+      const toConn = this.getConnection(toSegment, toConnectionKey);
+
+      console.log('Connection points:', {
+        from: `(${fromConn.position.x.toFixed(
+          2
+        )}, ${fromConn.position.y.toFixed(2)}, ${fromConn.position.z.toFixed(
+          2
+        )})`,
+        to: `(${toConn.position.x.toFixed(2)}, ${toConn.position.y.toFixed(
+          2
+        )}, ${toConn.position.z.toFixed(2)})`,
+        distance: fromConn.position.distanceTo(toConn.position).toFixed(2),
+      });
+
+      console.groupEnd();
+    }
+
     if (fromSegmentIndex === toSegmentIndex) {
       throw new RoadNetworkValidationError(
         'Cannot connect a segment to itself'
@@ -184,15 +226,11 @@ export class RoadNetworkBuilder {
     connectionKey2: ConnectionKey
   ): boolean {
     try {
-      // This will throw an error if the connections are invalid
-      const connection1 = this.getConnection(segment1, connectionKey1);
-      const connection2 = this.getConnection(segment2, connectionKey2);
-
-      // Additional validation could be added here
-      // For example, checking if widths are compatible or if directions align
-
+      // Just check if we can get valid connections for both segments
+      this.getConnection(segment1, connectionKey1);
+      this.getConnection(segment2, connectionKey2);
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -286,6 +324,12 @@ export class RoadNetworkBuilder {
    * Build the road network
    */
   build(): RoadNetwork {
+    if (process.env.NODE_ENV === 'development') {
+      console.group('Building road network');
+      console.log('Total segments:', this.segments.length);
+      console.log('Total connections:', this.connections.length);
+    }
+
     if (this.isBuilt) {
       throw new Error('This builder has already been used');
     }
@@ -320,12 +364,6 @@ export class RoadNetworkBuilder {
       // Update the segments in the array
       updatedSegments[fromSegmentIndex] = updatedSegment1;
       updatedSegments[toSegmentIndex] = updatedSegment2;
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          `Connected segment ${fromSegmentIndex} to segment ${toSegmentIndex}`
-        );
-      }
     }
 
     // If no startPoint was explicitly set, default to the first segment's start
@@ -341,143 +379,115 @@ export class RoadNetworkBuilder {
     this.isBuilt = true;
 
     // Build and return the network
-    return {
+    const network = {
       id: this.id,
       name: this.name,
       segments: updatedSegments,
       startPoint: this.startPoint,
       checkpoints: this.checkpoints,
     };
+
+    if (process.env.NODE_ENV === 'development') {
+      console.groupEnd();
+    }
+
+    return network;
   }
 
   /**
-   * Build a road network from a layout definition
-   *
-   * @param layout The road network layout to build
-   * @returns A fully constructed road network
+   * Creates a network from a layout definition
    */
-  static buildFromLayout(layout: RoadNetworkLayout): RoadNetwork {
-    // Create a new builder with the name from the layout
-    const builder = new RoadNetworkBuilder(
-      layout.options.name || 'Road Network'
-    );
+  static createFromLayout(layout: RoadNetworkLayout): RoadNetwork {
+    const builder = new RoadNetworkBuilder(layout.options.name);
 
-    // Set ID if specified
-    if (layout.options.id) {
-      builder.setId(layout.options.id);
-    }
-
-    // Create all segments from their type and parameters
-    const segments: RoadSegment[] = layout.segments.map((segmentDef) => {
-      // Ensure position is a Vector3 if it exists as an object
-      if (
-        segmentDef.params.position &&
-        !(segmentDef.params.position instanceof Vector3)
-      ) {
-        const pos = segmentDef.params.position as {
-          x: number;
-          y: number;
-          z: number;
-        };
-        segmentDef.params.position = new Vector3(pos.x, pos.y, pos.z);
-      }
-
-      // Ensure rotation is a Vector3 if it exists as an object
-      if (
-        segmentDef.params.rotation &&
-        !(segmentDef.params.rotation instanceof Vector3)
-      ) {
-        const rot = segmentDef.params.rotation as {
-          x: number;
-          y: number;
-          z: number;
-        };
-        segmentDef.params.rotation = new Vector3(rot.x, rot.y, rot.z);
-      }
-
+    // Create all segments from the layout definition with proper type casting
+    const segments = layout.segments.map((segmentDef) => {
+      // Cast the params to the correct type for each segment type
       switch (segmentDef.type) {
-        case 'straight':
-          return RoadSegmentFactory.createStraight(
-            segmentDef.params as CreateStraightOptions
-          );
-        case 'curve':
-          return RoadSegmentFactory.createCurved(
-            segmentDef.params as CreateCurvedOptions
-          );
-        case 'intersection':
-          return RoadSegmentFactory.createIntersection(
-            segmentDef.params as CreateIntersectionOptions
-          );
-        case 'junction':
-          return RoadSegmentFactory.createJunction(
-            segmentDef.params as CreateJunctionOptions
-          );
+        case 'straight': {
+          const { position, rotation, length, width } = segmentDef.params;
+          return RoadSegmentFactory.createStraight({
+            position: new Vector3(position.x, position.y, position.z),
+            rotation: new Vector3(rotation.x, rotation.y, rotation.z),
+            length,
+            width,
+          });
+        }
+        case 'curve': {
+          const { position, rotation, radius, angle, direction, width } =
+            segmentDef.params;
+          return RoadSegmentFactory.createCurved({
+            position: new Vector3(position.x, position.y, position.z),
+            rotation: new Vector3(rotation.x, rotation.y, rotation.z),
+            radius,
+            angle,
+            direction,
+            width,
+          });
+        }
+        case 'intersection': {
+          const { position, rotation, width } = segmentDef.params;
+          return RoadSegmentFactory.createIntersection({
+            position: new Vector3(position.x, position.y, position.z),
+            rotation: new Vector3(rotation.x, rotation.y, rotation.z),
+            width,
+          });
+        }
+        case 'junction': {
+          const { position, rotation, width } = segmentDef.params;
+          return RoadSegmentFactory.createJunction({
+            position: new Vector3(position.x, position.y, position.z),
+            rotation: new Vector3(rotation.x, rotation.y, rotation.z),
+            width,
+          });
+        }
         default:
           throw new Error(`Unknown segment type: ${segmentDef.type}`);
       }
     });
 
+    // Add segments to builder
     builder.addSegments(segments);
 
-    // Set the start point if specified
+    // Set the start point
     if (layout.options.startPoint) {
       builder.setStartPoint(layout.options.startPoint);
     }
 
-    // Add checkpoints if specified
-    if (layout.options.checkpoints && layout.options.checkpoints.length > 0) {
+    // Add checkpoints if defined
+    if (layout.options.checkpoints) {
       builder.addCheckpoints(layout.options.checkpoints);
     }
 
-    // Add all the connections
-    for (const connection of layout.connections) {
+    // Connect all segments according to layout
+    layout.connections.forEach((conn) => {
       builder.connectSegments(
-        connection.fromIndex,
-        connection.fromConnection,
-        connection.toIndex,
-        connection.toConnection
+        conn.fromIndex,
+        conn.fromConnection,
+        conn.toIndex,
+        conn.toConnection
       );
-    }
+    });
 
-    // Build and return the network
     return builder.build();
   }
 
   /**
-   * Creates a simple test network with multiple connected road segments
-   * This is maintained for backwards compatibility
-   */
-  static createTestNetwork(): RoadNetwork {
-    // Use the test track layout and build with our new method
-    return RoadNetworkBuilder.buildFromLayout(RoadNetworkLayouts.testTrack());
-  }
-
-  /**
-   * Creates a square road network with 90-degree curved corners
-   * Each side of the square consists of two straight segments for more flexibility
+   * Creates a square track network with 90-degree curved corners
+   * @param sideLength Length of each side of the square (default: 80)
+   * @param cornerRadius Radius of the curved corners (default: 15)
+   * @param roadWidth Width of the road segments (default: 7)
    */
   static createSquareNetwork(
     sideLength = 80,
     cornerRadius = 15,
     roadWidth = 7
   ): RoadNetwork {
-    // Use the square track layout and build with our new method
-    return RoadNetworkBuilder.buildFromLayout(
-      RoadNetworkLayouts.square(sideLength, cornerRadius, roadWidth)
+    const layout = RoadNetworkLayouts.square(
+      sideLength,
+      cornerRadius,
+      roadWidth
     );
-  }
-
-  /**
-   * Creates a figure-8 racing track
-   */
-  static createFigure8Network(
-    trackWidth = 80,
-    cornerRadius = 20,
-    roadWidth = 7
-  ): RoadNetwork {
-    // Use the figure-8 track layout and build with our new method
-    return RoadNetworkBuilder.buildFromLayout(
-      RoadNetworkLayouts.figure8(trackWidth, cornerRadius, roadWidth)
-    );
+    return RoadNetworkBuilder.createFromLayout(layout);
   }
 }

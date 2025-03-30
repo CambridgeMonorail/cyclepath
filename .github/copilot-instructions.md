@@ -78,3 +78,29 @@ docs/                    # Documentation
 - Use environment variables for configuration
 - Implement loading/error states
 - Use mock clients for testing
+
+## Road Network Layout Guidance
+
+When working on the road network system, adhere to the following principles to ensure proper layout and alignment of road segments:
+
+1. **Flat Surface Constraint**:
+   - All road segments must be placed on a single flat plane (e.g., `y = 0`).
+   - The height (`y` coordinate) of all segments and their connection points should remain constant.
+
+2. **2D Rotation Only**:
+   - Road segments should only rotate around the vertical axis (`y-axis`) to define their direction.
+   - No tilting or rolling of segments (no rotation around `x` or `z` axes).
+
+3. **Connection Alignment**:
+   - The end of one segment must align perfectly with the start of the next segment.
+   - Connection points should be validated to ensure continuity.
+
+4. **Validation and Debugging**:
+   - Add validation checks to ensure all segments are on the same plane and properly aligned.
+   - Use debug visualizations (e.g., markers, lines) to confirm correct placement.
+
+5. **Documentation**:
+   - Write a clear explanation of these constraints in the project documentation.
+   - Include examples and diagrams to illustrate correct and incorrect layouts.
+
+By following these principles, we can ensure that the road network is consistent, visually accurate, and functions as intended in the game.

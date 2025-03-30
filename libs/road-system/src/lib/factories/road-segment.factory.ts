@@ -678,6 +678,24 @@ export class RoadSegmentFactory {
   }
 
   /**
+   * Type guard for straight segments
+   */
+  private static isStraightSegment(
+    segment: RoadSegment
+  ): segment is StraightRoadSegment {
+    return segment.type === 'straight';
+  }
+
+  /**
+   * Type guard for curved segments
+   */
+  private static isCurvedSegment(
+    segment: RoadSegment
+  ): segment is CurvedRoadSegment {
+    return segment.type === 'curve';
+  }
+
+  /**
    * Type-safe helper to get a connection from a road segment
    */
   private static getConnection(
@@ -735,25 +753,92 @@ export class RoadSegmentFactory {
     const connection1 = this.getConnection(segment1, connectionKey1);
     const connection2 = this.getConnection(segment2, connectionKey2);
 
-    // Log connection operation for debugging
+    // Calculate the required adjustment to align the connection points
+    const positionDelta = new Vector3().subVectors(
+      connection1.position,
+      connection2.position
+    );
+
+    // Adjust segment2's position to align with segment1's connection point
+    updatedSegment2.position.add(positionDelta);
+
+    // Update connection points after position adjustment
+    const newConnection1 = { ...connection1 };
+    const newConnection2 = { ...connection2 };
+    newConnection2.position.add(positionDelta);
+
+    // Update connection IDs to reflect the connection
+    newConnection1.connectedToId = updatedSegment2.id;
+    newConnection2.connectedToId = updatedSegment1.id;
+
+    // Debug logging
     if (process.env.NODE_ENV === 'development') {
-      console.log('Connecting segments:');
+      console.group('Connecting segments:');
       console.log(
-        `- Segment 1 (${segment1.id}) ${String(connectionKey1)} to Segment 2 (${
+        `Segment 1 (${segment1.id}) ${String(connectionKey1)} to Segment 2 (${
           segment2.id
         }) ${String(connectionKey2)}`
       );
-      console.log('- Connection 1 position:', connection1.position);
-      console.log('- Connection 2 position:', connection2.position);
-      console.log(
-        '- Distance before alignment:',
-        connection1.position.distanceTo(connection2.position).toFixed(4)
+      console.log('Position adjustment:', positionDelta);
+      console.log('Connection points:', {
+        before: {
+          distance: connection1.position
+            .distanceTo(connection2.position)
+            .toFixed(2),
+          direction1: connection1.direction.toArray().map((v) => v.toFixed(2)),
+          direction2: connection2.direction.toArray().map((v) => v.toFixed(2)),
+        },
+        after: {
+          distance: connection1.position
+            .distanceTo(newConnection2.position)
+            .toFixed(2),
+          direction1: newConnection1.direction
+            .toArray()
+            .map((v) => v.toFixed(2)),
+          direction2: newConnection2.direction
+            .toArray()
+            .map((v) => v.toFixed(2)),
+        },
+      });
+      console.groupEnd();
+    }
+
+    // Validate the connection
+    const finalDistance = connection1.position.distanceTo(
+      newConnection2.position
+    );
+    if (finalDistance > 0.01) {
+      throw new Error(
+        `Failed to align segments: connection points distance ${finalDistance.toFixed(
+          3
+        )} units apart`
       );
     }
 
-    // Note: For now, we're keeping the segments at their original positions
-    // This allows us to validate that the segments are properly positioned
-    // In a future iteration, we'll implement actual alignment of segments
+    // Update the connections on the segments in a type-safe way
+    if (this.isStraightSegment(updatedSegment1)) {
+      updatedSegment1.connections = {
+        ...updatedSegment1.connections,
+        [connectionKey1]: newConnection1,
+      };
+    } else if (this.isCurvedSegment(updatedSegment1)) {
+      updatedSegment1.connections = {
+        ...updatedSegment1.connections,
+        [connectionKey1]: newConnection1,
+      };
+    }
+
+    if (this.isStraightSegment(updatedSegment2)) {
+      updatedSegment2.connections = {
+        ...updatedSegment2.connections,
+        [connectionKey2]: newConnection2,
+      };
+    } else if (this.isCurvedSegment(updatedSegment2)) {
+      updatedSegment2.connections = {
+        ...updatedSegment2.connections,
+        [connectionKey2]: newConnection2,
+      };
+    }
 
     return [updatedSegment1, updatedSegment2];
   }
