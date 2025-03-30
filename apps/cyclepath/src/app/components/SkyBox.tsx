@@ -1,5 +1,5 @@
 import { useThree } from '@react-three/fiber';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 
 type SkyBoxProps = {
@@ -35,9 +35,6 @@ export const SkyBox = ({
 
   // Create and configure the shader material once
   const skyMaterial = useMemo(() => {
-    // Remove any existing background
-    scene.background = null;
-
     // Create a shader material with vertical gradient
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -66,11 +63,22 @@ export const SkyBox = ({
         }
       `,
       side: THREE.BackSide, // Render on the inside of the box
+      depthWrite: false, // Don't write to depth buffer
     });
-  }, [topColor, bottomColor, scene]);
+  }, [topColor, bottomColor]);
+
+  // Set the scene background color to match the bottom color
+  useEffect(() => {
+    const originalBackground = scene.background;
+    // We don't set the scene.background here to avoid conflicts with our skybox
+
+    return () => {
+      scene.background = originalBackground;
+    };
+  }, [scene, bottomColor]);
 
   return (
-    <mesh>
+    <mesh renderOrder={-1000}>
       <boxGeometry args={[size, size, size]} />
       <primitive object={skyMaterial} attach="material" />
     </mesh>

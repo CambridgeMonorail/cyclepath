@@ -51,8 +51,13 @@ export const RoadNetworkComponent = ({
 
   return (
     <group>
-      {network.segments.map((segment) => (
-        <RoadSegmentMesh key={segment.id} segment={segment} debug={debug} />
+      {network.segments.map((segment, index) => (
+        <RoadSegmentMesh
+          key={segment.id}
+          segment={segment}
+          debug={debug}
+          index={index}
+        />
       ))}
 
       {/* Debug visual markers for network start point and checkpoints */}

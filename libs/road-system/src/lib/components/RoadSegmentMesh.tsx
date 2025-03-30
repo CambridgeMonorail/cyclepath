@@ -1,4 +1,5 @@
 import { useFrame } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import {
@@ -9,9 +10,13 @@ import {
 import { useRoadTextures } from '../utils/use-road-textures';
 import { TextureDebugger } from './TextureDebugger';
 
+// Add import for Box3Helper and Box3
+import { Box3Helper, Box3 } from 'three';
+
 type RoadSegmentMeshProps = {
   segment: RoadSegment;
   debug?: boolean;
+  index?: number;
 };
 
 /**
@@ -21,6 +26,7 @@ type RoadSegmentMeshProps = {
 export const RoadSegmentMesh = ({
   segment,
   debug = false,
+  index = -1,
 }: RoadSegmentMeshProps) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const markingsRef = useRef<THREE.Mesh>(null);
@@ -84,7 +90,7 @@ export const RoadSegmentMesh = ({
       // Set PBR material properties for realistic appearance
       material.roughness = 0.8;
       material.metalness = 0.2;
-      material.side = THREE.DoubleSide;
+      material.side = THREE.FrontSide; // Changed from DoubleSide to FrontSide
 
       // Setting these flags is crucial for the textures to appear
       material.needsUpdate = true;
@@ -279,6 +285,13 @@ export const RoadSegmentMesh = ({
         arrowHelperRef.current = arrowHelper;
         meshRef.current.add(arrowHelper);
       }
+
+      // Add bounding box visualization
+      if (meshRef.current) {
+        const box = new Box3().setFromObject(meshRef.current);
+        const helper = new Box3Helper(box, 0xffff00);
+        meshRef.current.add(helper);
+      }
     }
 
     return undefined;
@@ -347,6 +360,31 @@ export const RoadSegmentMesh = ({
             </bufferGeometry>
             <lineBasicMaterial color="yellow" linewidth={2} />
           </line>
+
+          {/* Segment index label with background - positioned at segment's center */}
+          <group
+            position={[
+              (start.position.x + end.position.x) / 2,
+              2,
+              (start.position.z + end.position.z) / 2,
+            ]}
+          >
+            {/* Background plane */}
+            <mesh position={[0, 0, -0.01]}>
+              <planeGeometry args={[2.5, 0.6]} />
+              <meshBasicMaterial color="#000000" transparent opacity={0.7} />
+            </mesh>
+            {/* Text overlay */}
+            <Text
+              position={[0, 0, 0]}
+              fontSize={0.3}
+              color="#ff3366"
+              anchorX="center"
+              anchorY="middle"
+            >
+              {`#${index} (${segment.id.substring(0, 6)})`}
+            </Text>
+          </group>
         </group>
       );
     }
@@ -434,7 +472,7 @@ export const RoadSegmentMesh = ({
             roughnessMap={textures.roughnessMap}
             roughness={0.8}
             metalness={0.2}
-            side={THREE.DoubleSide}
+            side={THREE.FrontSide}
             emissive={debug ? new THREE.Color(0x222222) : undefined}
           />
         </mesh>
@@ -453,7 +491,7 @@ export const RoadSegmentMesh = ({
             depthWrite={false}
             alphaTest={0.01}
             map={textures.markingsMap}
-            side={THREE.DoubleSide}
+            side={THREE.FrontSide}
           />
         </mesh>
       </group>

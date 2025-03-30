@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stats } from '@react-three/drei';
+import { Html, OrbitControls, Stats } from '@react-three/drei';
 import { Suspense, useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import {
@@ -14,6 +14,7 @@ import {
 
 import ObstaclesGenerator from './ObstaclesGenerator';
 import SkyBox from './SkyBox';
+import Floor from './Floor';
 
 // Simplified WebGL context manager that leverages Three.js's built-in capabilities
 const WebGLContextManager = () => {
@@ -81,7 +82,13 @@ type GameSceneProps = {
 
 export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
-  const roadNetwork = useMemo(() => RoadNetworkBuilder.createTestNetwork(), []);
+
+  // Use the new square track layout instead of the test network
+  const roadNetwork = useMemo(
+    () => RoadNetworkBuilder.createSquareNetwork(80, 15, 7),
+    []
+  );
+
   const [sceneReady, setSceneReady] = useState(false);
   const [showPerformanceStats, setShowPerformanceStats] = useState(
     process.env.NODE_ENV === 'development'
@@ -93,6 +100,16 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const handleSceneLoaded = () => {
     setSceneReady(true);
   };
+
+  // Use the start point from the road network for the initial player position
+  useEffect(() => {
+    if (roadNetwork && roadNetwork.startPoint) {
+      setPlayerPosition({
+        x: roadNetwork.startPoint.x,
+        z: roadNetwork.startPoint.z,
+      });
+    }
+  }, [roadNetwork]);
 
   // Toggle performance stats with 'P' key in development
   // Toggle debug mode with 'D' key in development
@@ -135,6 +152,8 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
           <WebGLContextManager />
           {/* Add the SkyBox component to create a background for the scene */}
           <SkyBox topColor="#0F172A" bottomColor="#38BDF8" size={2000} />
+          {/* Add the Floor component to create a green ground plane */}
+          <Floor color="#90C95B" size={2000} receiveShadow />
           <ambientLight intensity={0.5} />
           <directionalLight
             position={[10, 10, 5]}
@@ -158,7 +177,7 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
             />
           )}
 
-          {isPlaying && sceneReady && (
+          {isPlaying && sceneReady && !debugMode && (
             <Player
               position={playerPosition}
               onMove={setPlayerPosition}
@@ -166,7 +185,19 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
             />
           )}
 
-          <OrbitControls enabled={!isPlaying} />
+          {/* Enable OrbitControls when not playing OR when in debug mode */}
+          <OrbitControls
+            enabled={!isPlaying || debugMode}
+            makeDefault
+            minDistance={1}
+            maxDistance={100}
+            target={
+              debugMode ? undefined : [playerPosition.x, 0, playerPosition.z]
+            }
+          />
+
+          {/* Show debug camera info when in debug mode */}
+          {debugMode && <CameraDebugHelper />}
 
           {showPerformanceStats && <Stats />}
         </Suspense>
@@ -284,3 +315,89 @@ const Player = ({
 };
 
 export default GameScene;
+
+/**
+ * Helper component that displays camera position and controls info in debug mode
+ */
+const CameraDebugHelper = () => {
+  const { camera, scene } = useThree();
+  const [cameraInfo, setCameraInfo] = useState({
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
+    target: { x: 0, y: 0, z: 0 },
+  });
+
+  // Update camera info on each frame
+  useFrame(() => {
+    // Extract camera position and rotation
+    const position = camera.position.clone();
+    const euler = new THREE.Euler().setFromQuaternion(camera.quaternion);
+
+    // Get orbit controls target if available
+    const controls = (camera as any).userData.controls;
+    const target = controls?.target || new THREE.Vector3(0, 0, 0);
+
+    // Update state with new values
+    setCameraInfo({
+      position: {
+        x: parseFloat(position.x.toFixed(2)),
+        y: parseFloat(position.y.toFixed(2)),
+        z: parseFloat(position.z.toFixed(2)),
+      },
+      rotation: {
+        x: parseFloat(THREE.MathUtils.radToDeg(euler.x).toFixed(2)),
+        y: parseFloat(THREE.MathUtils.radToDeg(euler.y).toFixed(2)),
+        z: parseFloat(THREE.MathUtils.radToDeg(euler.z).toFixed(2)),
+      },
+      target: {
+        x: parseFloat(target.x.toFixed(2)),
+        y: parseFloat(target.y.toFixed(2)),
+        z: parseFloat(target.z.toFixed(2)),
+      },
+    });
+  });
+
+  return (
+    <group position={[0, 0, 0]}>
+      {/* Display camera information as 3D text */}
+      <mesh position={[0, 2, -5]} rotation={[0, 0, 0]}>
+        <planeGeometry args={[6, 2.5]} />
+        <meshBasicMaterial transparent opacity={0.7} color="#000000" />
+      </mesh>
+
+      {/* Simple text overlay to show camera info */}
+      <Html position={[0, 2, -4.95]} transform>
+        <div
+          style={{
+            color: '#ffffff',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            width: '300px',
+            padding: '10px',
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+            CAMERA DEBUG
+          </div>
+          <div>
+            Position: X: {cameraInfo.position.x} Y: {cameraInfo.position.y} Z:{' '}
+            {cameraInfo.position.z}
+          </div>
+          <div>
+            Rotation: X: {cameraInfo.rotation.x}° Y: {cameraInfo.rotation.y}° Z:{' '}
+            {cameraInfo.rotation.z}°
+          </div>
+          <div>
+            Target: X: {cameraInfo.target.x} Y: {cameraInfo.target.y} Z:{' '}
+            {cameraInfo.target.z}
+          </div>
+          <div style={{ marginTop: '5px', fontSize: '10px' }}>
+            <span style={{ color: '#ffcc00' }}>Debug Controls:</span> Mouse drag
+            to rotate, scroll to zoom, right-click to pan
+          </div>
+        </div>
+      </Html>
+    </group>
+  );
+};

@@ -134,6 +134,29 @@ A working browser-based prototype where a player can start a race, move the bike
     - [ ] Use Three.js instanced meshes for similar objects
     - [ ] Add culling for off-screen elements
 
+#### Road Network Refactoring (Critical/New) 🚨
+
+- [ ] Refactor RoadNetworkBuilder to separate responsibilities:
+  - [ ] Separate network definition from network construction
+  - [ ] Create dedicated layout definition interfaces
+  - [ ] Implement composable road layout patterns
+  - [ ] Create a registry of predefined layouts
+  - [ ] Add validation for all road network layouts
+  
+- [ ] Create standardized road network layouts:
+  - [x] Implement square layout with rounded corners
+  - [ ] Create figure-8 racing circuit
+  - [ ] Implement grid-based city layout
+  - [ ] Design Cambridge Mill Road inspired layout
+  - [ ] Add circular test track
+  
+- [ ] Integrate road networks with game scene:
+  - [ ] Make road network configurable in main game component
+  - [ ] Create layout selection mechanism
+  - [ ] Fix main game scene to render selected road network
+  - [ ] Add camera positioning based on road network structure
+  - [ ] Ensure player positioning on road surface
+
 ### 2. Enhanced Course & Obstacles
 
 #### Course Data Structure and Generation
@@ -539,3 +562,36 @@ All implementations must adhere to the Cyclepath coding standards:
    - Implement proper object pooling
    - Use React profiler to identify component bottlenecks
    - Implement tree-shaking compatible code structure
+
+### Debugging Road Segment Layout Discrepancies
+
+#### Investigation Tasks
+
+- [ ] Analyze the `RoadSegmentMesh` component:
+  - [ ] Verify the `position` and `rotation` properties of road segments.
+  - [ ] Check the logic for calculating the `start` and `end` connection points.
+  - [ ] Ensure the `connections` property is correctly defined and utilized.
+
+- [ ] Debug the alignment of road segments:
+  - [ ] Add logging to output the calculated positions and rotations of segments.
+  - [ ] Visualize the connection points in the 3D scene to confirm their accuracy.
+  - [ ] Validate the `start` and `end` markers' positions relative to the road mesh.
+
+- [ ] Review the `RoadNetworkBuilder` logic:
+  - [ ] Ensure segments are being placed sequentially based on their connections.
+  - [ ] Check for any transformations or offsets applied during placement.
+
+#### Resolution Tasks
+
+- [ ] Update the `RoadSegmentMesh` component:
+  - [ ] Adjust the logic for positioning and orienting segments to ensure continuity.
+  - [ ] Fix any discrepancies in the `start` and `end` marker placements.
+
+- [ ] Refactor the `RoadNetworkBuilder`:
+  - [ ] Implement a validation step to check segment alignment during network generation.
+  - [ ] Add error handling for misaligned segments.
+
+- [ ] Testing and Validation:
+  - [ ] Create unit tests to verify the alignment of road segments.
+  - [ ] Conduct visual tests to confirm proper layout in the 3D scene.
+  - [ ] Validate the debug visualization elements (markers, connection lines, labels).
