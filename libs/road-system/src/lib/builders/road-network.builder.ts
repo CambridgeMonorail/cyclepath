@@ -1,4 +1,4 @@
-import { Vector3 } from 'three';
+import { Vector3, Vector2 } from 'three';
 import {
   RoadNetwork,
   RoadSegment,
@@ -46,16 +46,6 @@ type SegmentConnection = {
 };
 
 /**
- * Error thrown when trying to connect incompatible road segments
- */
-export class RoadNetworkValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'RoadNetworkValidationError';
-  }
-}
-
-/**
  * RoadNetworkBuilder provides a flexible way to create road networks
  * using a builder pattern. It includes validation to ensure segments
  * can only connect at compatible points.
@@ -68,6 +58,7 @@ export class RoadNetworkBuilder {
   private checkpoints: Vector3[] = [];
   private connections: SegmentConnection[] = [];
   private isBuilt = false;
+  private validationIssues: string[] = [];
 
   /**
    * Creates a new RoadNetworkBuilder instance
@@ -191,9 +182,7 @@ export class RoadNetworkBuilder {
     }
 
     if (fromSegmentIndex === toSegmentIndex) {
-      throw new RoadNetworkValidationError(
-        'Cannot connect a segment to itself'
-      );
+      this.validationIssues.push('Cannot connect a segment to itself');
     }
 
     if (
@@ -202,7 +191,7 @@ export class RoadNetworkBuilder {
       toSegmentIndex < 0 ||
       toSegmentIndex >= this.segments.length
     ) {
-      throw new RoadNetworkValidationError('Segment index out of bounds');
+      this.validationIssues.push('Segment index out of bounds');
     }
 
     // Store the connection to be processed during the build phase
@@ -270,28 +259,108 @@ export class RoadNetworkBuilder {
       }
     }
 
-    throw new RoadNetworkValidationError(
-      `Invalid connection key "${String(connectionKey)}" for segment type "${
-        segment.type
-      }"`
-    );
+    // Instead of throwing, collect the issue and return a placeholder connection
+    // This allows rendering to continue while still logging the issue
+    const errorMsg = `Invalid connection key "${String(
+      connectionKey
+    )}" for segment type "${segment.type}"`;
+    this.validationIssues.push(errorMsg);
+    console.warn(`[RoadNetwork] ${errorMsg}`);
+
+    // Return a default connection to prevent rendering failures
+    return {
+      position: segment.position.clone(),
+      direction: new Vector2(1, 0), // Default direction (forward/east)
+      width: segment.width,
+    };
+  }
+
+  /**
+   * Validates that all segments in the network are on the same plane
+   */
+  private validateFlatSurface(): void {
+    for (const segment of this.segments) {
+      if (Math.abs(segment.position.y) > 0.001) {
+        this.validationIssues.push(
+          `Segment ${segment.id} is not on flat surface (y = 0), got y = ${segment.position.y}`
+        );
+      }
+
+      // Check all connection points
+      Object.values(segment.connections).forEach((connection) => {
+        if (Math.abs(connection.position.y) > 0.001) {
+          this.validationIssues.push(
+            `Connection point on segment ${segment.id} is not on flat surface (y = 0), got y = ${connection.position.y}`
+          );
+        }
+      });
+    }
+  }
+
+  /**
+   * Validates that all segments only have Y-axis rotation
+   */
+  private validateYAxisRotation(): void {
+    for (const segment of this.segments) {
+      if (
+        Math.abs(segment.rotation.x) > 0.001 ||
+        Math.abs(segment.rotation.z) > 0.001
+      ) {
+        this.validationIssues.push(
+          `Segment ${segment.id} has invalid rotation. Must be Y-axis only. Got rotation (${segment.rotation.x}, ${segment.rotation.y}, ${segment.rotation.z})`
+        );
+      }
+    }
+  }
+
+  /**
+   * Validates that connected segments are properly aligned
+   */
+  private validateConnectionAlignment(): void {
+    for (const connection of this.connections) {
+      const segment1 = this.segments[connection.fromSegmentIndex];
+      const segment2 = this.segments[connection.toSegmentIndex];
+
+      const conn1 = this.getConnection(segment1, connection.fromConnectionKey);
+      const conn2 = this.getConnection(segment2, connection.toConnectionKey);
+
+      const distance = conn1.position.distanceTo(conn2.position);
+      if (distance > 0.01) {
+        this.validationIssues.push(
+          `Segments ${segment1.id} and ${
+            segment2.id
+          } are not properly aligned. Connection points are ${distance.toFixed(
+            3
+          )} units apart`
+        );
+      }
+    }
   }
 
   /**
    * Validate the road network structure
    */
   validate(): boolean {
+    this.validationIssues = []; // Clear previous issues
+
     // Check if there are segments
     if (this.segments.length === 0) {
-      throw new RoadNetworkValidationError(
-        'Network must have at least one segment'
-      );
+      this.validationIssues.push('Network must have at least one segment');
     }
 
     // Check if there's a start point
     if (!this.startPoint) {
-      throw new RoadNetworkValidationError('Network must have a start point');
+      this.validationIssues.push('Network must have a start point');
     }
+
+    // Validate flat surface constraint
+    this.validateFlatSurface();
+
+    // Validate Y-axis rotation constraint
+    this.validateYAxisRotation();
+
+    // Validate connection alignment
+    this.validateConnectionAlignment();
 
     // Validate connections
     for (const connection of this.connections) {
@@ -307,7 +376,7 @@ export class RoadNetworkBuilder {
       if (
         !this.canConnect(segment1, fromConnectionKey, segment2, toConnectionKey)
       ) {
-        throw new RoadNetworkValidationError(
+        this.validationIssues.push(
           `Cannot connect segment ${fromSegmentIndex} (${
             segment1.type
           }) at ${String(fromConnectionKey)} to segment ${toSegmentIndex} (${
@@ -317,7 +386,17 @@ export class RoadNetworkBuilder {
       }
     }
 
-    return true;
+    // Log all validation issues but don't prevent rendering
+    if (this.validationIssues.length > 0) {
+      console.warn(
+        `[RoadNetwork] Validation found ${this.validationIssues.length} issues:`
+      );
+      this.validationIssues.forEach((issue, index) => {
+        console.warn(`[RoadNetwork] Issue #${index + 1}: ${issue}`);
+      });
+    }
+
+    return this.validationIssues.length === 0;
   }
 
   /**
@@ -334,7 +413,8 @@ export class RoadNetworkBuilder {
       throw new Error('This builder has already been used');
     }
 
-    // Validate the network
+    // Validate the network but continue even if validation fails
+    // Just log warnings instead of stopping execution
     this.validate();
 
     // Process all connections
@@ -352,22 +432,37 @@ export class RoadNetworkBuilder {
       const segment1 = updatedSegments[fromSegmentIndex];
       const segment2 = updatedSegments[toSegmentIndex];
 
-      // Connect the segments and get the updated versions
-      const [updatedSegment1, updatedSegment2] =
-        RoadSegmentFactory.connectSegments(
-          segment1,
-          fromConnectionKey as ConnectionKey,
-          segment2,
-          toConnectionKey as ConnectionKey
-        );
+      try {
+        // Connect the segments and get the updated versions
+        const [updatedSegment1, updatedSegment2] =
+          RoadSegmentFactory.connectSegments(
+            segment1,
+            fromConnectionKey as ConnectionKey,
+            segment2,
+            toConnectionKey as ConnectionKey
+          );
 
-      // Update the segments in the array
-      updatedSegments[fromSegmentIndex] = updatedSegment1;
-      updatedSegments[toSegmentIndex] = updatedSegment2;
+        // Update the segments in the array
+        updatedSegments[fromSegmentIndex] = updatedSegment1;
+        updatedSegments[toSegmentIndex] = updatedSegment2;
+      } catch (error: unknown) {
+        // Log connection errors but continue building
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[RoadNetwork] Error connecting segments: ${errorMessage}`
+        );
+        console.warn(
+          `- From: Segment ${fromSegmentIndex} (${segment1.type}) at ${fromConnectionKey}`
+        );
+        console.warn(
+          `- To: Segment ${toSegmentIndex} (${segment2.type}) at ${toConnectionKey}`
+        );
+      }
     }
 
     // If no startPoint was explicitly set, default to the first segment's start
-    if (!this.startPoint) {
+    if (!this.startPoint && updatedSegments.length > 0) {
       const firstSegment = updatedSegments[0];
       if (isStraightSegment(firstSegment) || isCurvedSegment(firstSegment)) {
         this.startPoint = firstSegment.connections.start.position.clone();
@@ -383,7 +478,7 @@ export class RoadNetworkBuilder {
       id: this.id,
       name: this.name,
       segments: updatedSegments,
-      startPoint: this.startPoint,
+      startPoint: this.startPoint || new Vector3(0, 0, 0), // Provide default if missing
       checkpoints: this.checkpoints,
     };
 
@@ -489,5 +584,15 @@ export class RoadNetworkBuilder {
       roadWidth
     );
     return RoadNetworkBuilder.createFromLayout(layout);
+  }
+}
+
+/**
+ * Error thrown when trying to connect incompatible road segments
+ */
+export class RoadNetworkValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoadNetworkValidationError';
   }
 }

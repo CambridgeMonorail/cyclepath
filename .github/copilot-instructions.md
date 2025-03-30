@@ -22,6 +22,8 @@ Cyclepath is a humorous 3D racing game where players navigate a cyclist through 
 - **Styling**: Use Tailwind classes and shadcn theme variables
 - **Testing**: Co-locate tests with components (Component.spec.tsx)
 
+When making changes always check the editor for typescript errors before assuming the code is complete or trying to run it.
+
 ## 3D Development
 
 - Use React Three Fiber for declarative 3D components

@@ -1,4 +1,4 @@
-import { Vector3, Matrix4, Vector2, MathUtils } from 'three';
+import { Vector3, Matrix4, Vector2 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import {
   RoadSegment,
@@ -73,6 +73,34 @@ export type CreateJunctionOptions = {
 
 export class RoadSegmentFactory {
   /**
+   * Validates that a position is on the flat surface (y = 0) and corrects it if necessary
+   */
+  private static validateFlatSurface(position: Vector3, context: string): void {
+    if (Math.abs(position.y) > 0.001) {
+      console.warn(
+        `${context}: Position must be on flat surface (y = 0), got y = ${position.y}. Correcting to y = 0.`
+      );
+      position.y = 0; // Correct the y-coordinate
+    }
+  }
+
+  /**
+   * Validates that rotation is only around Y axis and corrects it if necessary
+   */
+  private static validateYAxisRotation(
+    rotation: Vector3,
+    context: string
+  ): void {
+    if (Math.abs(rotation.x) > 0.001 || Math.abs(rotation.z) > 0.001) {
+      console.warn(
+        `${context}: Rotation must be around Y axis only. Got rotation (${rotation.x}, ${rotation.y}, ${rotation.z}). Correcting to Y-axis rotation.`
+      );
+      rotation.x = 0; // Correct the x-axis rotation
+      rotation.z = 0; // Correct the z-axis rotation
+    }
+  }
+
+  /**
    * Creates a straight road segment with proper connection points
    */
   static createStraight({
@@ -85,12 +113,14 @@ export class RoadSegmentFactory {
     hasCrosswalk = false,
     textureOptions = {},
   }: CreateStraightOptions): StraightRoadSegment {
-    // Flatten position and rotation for road segments (roads are on XZ plane)
-    // Important: we use -Math.PI/2 on the X-axis to rotate the plane from XY to XZ orientation
-    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Validate constraints
+    this.validateFlatSurface(position, 'createStraight');
+    this.validateYAxisRotation(rotation, 'createStraight');
 
-    // Apply the X rotation to align with XZ plane, then add the Y rotation for direction
-    const flatRotation = new Vector3(-Math.PI / 2, rotation.y, 0);
+    // Ensure position is on XZ plane
+    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Only use Y-axis rotation
+    const flatRotation = new Vector3(0, rotation.y, 0);
 
     // Half the length of the segment (used for connection point calculations)
     const halfLength = length / 2;
@@ -137,42 +167,6 @@ export class RoadSegmentFactory {
       width,
     };
 
-    // Log the calculated connection points and rotation in degrees for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Creating straight segment:');
-      console.log('- Position:', flatPosition);
-      console.log('- Rotation (radians):', flatRotation);
-      console.log(
-        '- Rotation (degrees):',
-        new Vector3(
-          MathUtils.radToDeg(flatRotation.x),
-          MathUtils.radToDeg(flatRotation.y),
-          MathUtils.radToDeg(flatRotation.z)
-        )
-      );
-      console.log('- Length/Width:', length, width);
-      console.log('- Start connection:', {
-        position: `(${startConnection.position.x.toFixed(
-          2
-        )}, ${startConnection.position.y.toFixed(
-          2
-        )}, ${startConnection.position.z.toFixed(2)})`,
-        direction: `(${startConnection.direction.x.toFixed(
-          2
-        )}, ${startConnection.direction.y.toFixed(2)})`,
-      });
-      console.log('- End connection:', {
-        position: `(${endConnection.position.x.toFixed(
-          2
-        )}, ${endConnection.position.y.toFixed(
-          2
-        )}, ${endConnection.position.z.toFixed(2)})`,
-        direction: `(${endConnection.direction.x.toFixed(
-          2
-        )}, ${endConnection.direction.y.toFixed(2)})`,
-      });
-    }
-
     // Return the complete road segment
     return {
       id: uuidv4(),
@@ -192,7 +186,6 @@ export class RoadSegmentFactory {
         roadTexture: textureOptions.roadTexture || 'asphalt.jpg',
         normalMap: textureOptions.normalMap || 'asphalt_normal.png',
         roughnessMap: textureOptions.roughnessMap || 'asphalt_roughness.png',
-        // Ensure texture is oriented correctly for the road
         rotation: textureOptions.rotation || 0,
       },
     };
@@ -213,11 +206,19 @@ export class RoadSegmentFactory {
     hasCrosswalk = false,
     textureOptions = {},
   }: CreateCurvedOptions): CurvedRoadSegment {
-    // Flatten position and rotation for road segments (roads are on XZ plane)
-    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Validate constraints
+    this.validateFlatSurface(position, 'createCurved');
+    this.validateYAxisRotation(rotation, 'createCurved');
 
-    // Apply the X rotation to align with XZ plane, then add the Y rotation for direction
-    const flatRotation = new Vector3(-Math.PI / 2, rotation.y, 0);
+    // Ensure position is on XZ plane
+    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Only use Y-axis rotation
+    const flatRotation = new Vector3(0, rotation.y, 0);
+
+    // Adjust radius for 90-degree curves to ensure the arc length matches the width
+    if (angle === Math.PI / 2) {
+      radius = width; // For a square, the radius must equal the width
+    }
 
     // Create a rotation matrix for the segment orientation
     const rotationMatrix = new Matrix4().makeRotationY(rotation.y);
@@ -228,20 +229,15 @@ export class RoadSegmentFactory {
 
     // Calculate the end position based on radius, angle, and direction
     const endLocal = new Vector3();
-
-    // The direction affects how we calculate the end position
     const angleSign = direction === 'left' ? -1 : 1;
 
-    // Calculate the end position in local space
     if (direction === 'left') {
-      // For a left turn, rotate counter-clockwise from the starting direction
       endLocal.set(
         Math.sin(angle) * radius,
         0,
         radius - Math.cos(angle) * radius
       );
     } else {
-      // For a right turn, rotate clockwise from the starting direction
       endLocal.set(
         -Math.sin(angle) * radius,
         0,
@@ -249,7 +245,6 @@ export class RoadSegmentFactory {
       );
     }
 
-    // Apply rotation to end position and add it to the segment position
     endLocal.applyMatrix4(rotationMatrix);
     const endPosition = new Vector3(
       flatPosition.x + endLocal.x,
@@ -268,9 +263,7 @@ export class RoadSegmentFactory {
     };
 
     // Calculate end connection direction
-    // For a curved road, the end direction depends on the curve angle and direction
     const endDirectionAngle = rotation.y + angleSign * angle;
-
     const endConnection: RoadConnection = {
       position: endPosition,
       direction: new Vector2(
@@ -280,54 +273,14 @@ export class RoadSegmentFactory {
       width,
     };
 
-    // Log the calculated connection points and rotation in degrees for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Creating curved segment:');
-      console.log('- Position:', flatPosition);
-      console.log('- Rotation (radians):', flatRotation);
-      console.log(
-        '- Rotation (degrees):',
-        new Vector3(
-          MathUtils.radToDeg(flatRotation.x),
-          MathUtils.radToDeg(flatRotation.y),
-          MathUtils.radToDeg(flatRotation.z)
-        )
-      );
-      console.log('- Radius:', radius);
-      console.log('- Angle (radians):', angle);
-      console.log('- Angle (degrees):', MathUtils.radToDeg(angle));
-      console.log('- Direction:', direction);
-      console.log('- Start connection:', {
-        position: `(${startConnection.position.x.toFixed(
-          2
-        )}, ${startConnection.position.y.toFixed(
-          2
-        )}, ${startConnection.position.z.toFixed(2)})`,
-        direction: `(${startConnection.direction.x.toFixed(
-          2
-        )}, ${startConnection.direction.y.toFixed(2)})`,
-      });
-      console.log('- End connection:', {
-        position: `(${endConnection.position.x.toFixed(
-          2
-        )}, ${endConnection.position.y.toFixed(
-          2
-        )}, ${endConnection.position.z.toFixed(2)})`,
-        direction: `(${endConnection.direction.x.toFixed(
-          2
-        )}, ${endConnection.direction.y.toFixed(2)})`,
-      });
-    }
-
     // Return the complete road segment
-    return {
+    const segment: CurvedRoadSegment = {
       id: uuidv4(),
       type: 'curve',
       position: flatPosition,
       rotation: flatRotation,
       width,
-      // In a curved road, length is the arc length
-      length: radius * angle,
+      length: radius * angle, // Arc length
       pavementWidth,
       lanes,
       hasCrosswalk,
@@ -342,10 +295,11 @@ export class RoadSegmentFactory {
         roadTexture: textureOptions.roadTexture || 'asphalt.jpg',
         normalMap: textureOptions.normalMap || 'asphalt_normal.png',
         roughnessMap: textureOptions.roughnessMap || 'asphalt_roughness.png',
-        // Ensure texture is oriented correctly for the road
         rotation: textureOptions.rotation || 0,
       },
     };
+
+    return segment;
   }
 
   /**
@@ -360,11 +314,14 @@ export class RoadSegmentFactory {
     hasCrosswalk = true,
     textureOptions = {},
   }: CreateIntersectionOptions): IntersectionRoadSegment {
-    // Flatten position and rotation for road segments (roads are on XZ plane)
-    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Validate constraints
+    this.validateFlatSurface(position, 'createIntersection');
+    this.validateYAxisRotation(rotation, 'createIntersection');
 
-    // Apply the X rotation to align with XZ plane, then add the Y rotation for direction
-    const flatRotation = new Vector3(-Math.PI / 2, rotation.y, 0);
+    // Ensure position is on XZ plane
+    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Only use Y-axis rotation
+    const flatRotation = new Vector3(0, rotation.y, 0);
 
     // Half the width of the intersection
     const halfWidth = width / 2;
@@ -442,55 +399,8 @@ export class RoadSegmentFactory {
       width,
     };
 
-    // Log debug information
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Creating intersection segment:');
-      console.log('- Position:', flatPosition);
-      console.log('- Rotation (radians):', flatRotation);
-      console.log('- Width:', width);
-      console.log('- North connection:', {
-        position: northPosition
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-        direction: northConnection.direction
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-      });
-      console.log('- South connection:', {
-        position: southPosition
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-        direction: southConnection.direction
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-      });
-      console.log('- East connection:', {
-        position: eastPosition
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-        direction: eastConnection.direction
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-      });
-      console.log('- West connection:', {
-        position: westPosition
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-        direction: westConnection.direction
-          .toArray()
-          .map((v) => v.toFixed(2))
-          .join(', '),
-      });
-    }
-
-    return {
+    // Create the segment
+    const segment: IntersectionRoadSegment = {
       id: uuidv4(),
       type: 'intersection',
       position: flatPosition,
@@ -513,6 +423,8 @@ export class RoadSegmentFactory {
         rotation: textureOptions.rotation || 0,
       },
     };
+
+    return segment;
   }
 
   /**
@@ -529,11 +441,14 @@ export class RoadSegmentFactory {
     hasCrosswalk = true,
     textureOptions = {},
   }: CreateJunctionOptions): JunctionRoadSegment {
-    // Flatten position and rotation for road segments (roads are on XZ plane)
-    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Validate constraints
+    this.validateFlatSurface(position, 'createJunction');
+    this.validateYAxisRotation(rotation, 'createJunction');
 
-    // Apply the X rotation to align with XZ plane, then add the Y rotation for direction
-    const flatRotation = new Vector3(-Math.PI / 2, rotation.y, 0);
+    // Ensure position is on XZ plane
+    const flatPosition = new Vector3(position.x, 0, position.z);
+    // Only use Y-axis rotation
+    const flatRotation = new Vector3(0, rotation.y, 0);
 
     // Half lengths for calculations
     const halfWidth = width / 2;
@@ -545,8 +460,6 @@ export class RoadSegmentFactory {
     // Calculate connection positions relative to the junction center
     const mainLocal = new Vector3(0, 0, -halfLength);
     const endLocal = new Vector3(0, 0, halfLength);
-
-    // Branch position depends on direction
     const branchLocal = new Vector3(
       branchDirection === 'right' ? halfWidth : -halfWidth,
       0,
@@ -594,18 +507,10 @@ export class RoadSegmentFactory {
     };
 
     // Direction for branch depends on branch direction
-    let branchDirection2D: Vector2;
-    if (branchDirection === 'right') {
-      branchDirection2D = new Vector2(
-        Math.cos(rotation.y),
-        -Math.sin(rotation.y)
-      ).normalize();
-    } else {
-      branchDirection2D = new Vector2(
-        -Math.cos(rotation.y),
-        Math.sin(rotation.y)
-      ).normalize();
-    }
+    const branchDirection2D =
+      branchDirection === 'right'
+        ? new Vector2(Math.cos(rotation.y), -Math.sin(rotation.y)).normalize()
+        : new Vector2(-Math.cos(rotation.y), Math.sin(rotation.y)).normalize();
 
     const branchConnection: RoadConnection = {
       position: branchPosition,
@@ -678,24 +583,6 @@ export class RoadSegmentFactory {
   }
 
   /**
-   * Type guard for straight segments
-   */
-  private static isStraightSegment(
-    segment: RoadSegment
-  ): segment is StraightRoadSegment {
-    return segment.type === 'straight';
-  }
-
-  /**
-   * Type guard for curved segments
-   */
-  private static isCurvedSegment(
-    segment: RoadSegment
-  ): segment is CurvedRoadSegment {
-    return segment.type === 'curve';
-  }
-
-  /**
    * Type-safe helper to get a connection from a road segment
    */
   private static getConnection(
@@ -745,13 +632,38 @@ export class RoadSegmentFactory {
     segment2: RoadSegment,
     connectionKey2: ConnectionKey
   ): [RoadSegment, RoadSegment] {
-    // Clone segments to avoid mutating the originals
-    const updatedSegment1 = { ...segment1 };
-    const updatedSegment2 = { ...segment2 };
+    // Create deep copies to avoid mutating the originals
+    const updatedSegment1 = JSON.parse(JSON.stringify(segment1)) as RoadSegment;
+    const updatedSegment2 = JSON.parse(JSON.stringify(segment2)) as RoadSegment;
+
+    // Restore Vector objects that were lost in JSON serialization
+    updatedSegment1.position = new Vector3().copy(segment1.position);
+    updatedSegment1.rotation = new Vector3().copy(segment1.rotation);
+    updatedSegment2.position = new Vector3().copy(segment2.position);
+    updatedSegment2.rotation = new Vector3().copy(segment2.rotation);
+
+    // Restore Vector objects in connections
+    Object.entries(updatedSegment1.connections).forEach(([key, conn]) => {
+      conn.position = new Vector3().copy(
+        (segment1.connections as Record<string, RoadConnection>)[key].position
+      );
+      conn.direction = new Vector2().copy(
+        (segment1.connections as Record<string, RoadConnection>)[key].direction
+      );
+    });
+
+    Object.entries(updatedSegment2.connections).forEach(([key, conn]) => {
+      conn.position = new Vector3().copy(
+        (segment2.connections as Record<string, RoadConnection>)[key].position
+      );
+      conn.direction = new Vector2().copy(
+        (segment2.connections as Record<string, RoadConnection>)[key].direction
+      );
+    });
 
     // Get connection points using our type-safe helper
-    const connection1 = this.getConnection(segment1, connectionKey1);
-    const connection2 = this.getConnection(segment2, connectionKey2);
+    const connection1 = this.getConnection(updatedSegment1, connectionKey1);
+    const connection2 = this.getConnection(updatedSegment2, connectionKey2);
 
     // Calculate the required adjustment to align the connection points
     const positionDelta = new Vector3().subVectors(
@@ -762,82 +674,35 @@ export class RoadSegmentFactory {
     // Adjust segment2's position to align with segment1's connection point
     updatedSegment2.position.add(positionDelta);
 
-    // Update connection points after position adjustment
-    const newConnection1 = { ...connection1 };
-    const newConnection2 = { ...connection2 };
-    newConnection2.position.add(positionDelta);
+    // Update ALL connection points after position adjustment
+    Object.values(updatedSegment2.connections).forEach((conn) => {
+      conn.position.add(positionDelta);
+    });
 
     // Update connection IDs to reflect the connection
-    newConnection1.connectedToId = updatedSegment2.id;
-    newConnection2.connectedToId = updatedSegment1.id;
+    connection1.connectedToId = updatedSegment2.id;
+    connection2.connectedToId = updatedSegment1.id;
 
     // Debug logging
     if (process.env.NODE_ENV === 'development') {
       console.group('Connecting segments:');
       console.log(
-        `Segment 1 (${segment1.id}) ${String(connectionKey1)} to Segment 2 (${
-          segment2.id
-        }) ${String(connectionKey2)}`
+        `Segment 1 (${updatedSegment1.id}) ${String(
+          connectionKey1
+        )} to Segment 2 (${updatedSegment2.id}) ${String(connectionKey2)}`
       );
       console.log('Position adjustment:', positionDelta);
-      console.log('Connection points:', {
-        before: {
-          distance: connection1.position
-            .distanceTo(connection2.position)
-            .toFixed(2),
-          direction1: connection1.direction.toArray().map((v) => v.toFixed(2)),
-          direction2: connection2.direction.toArray().map((v) => v.toFixed(2)),
-        },
-        after: {
-          distance: connection1.position
-            .distanceTo(newConnection2.position)
-            .toFixed(2),
-          direction1: newConnection1.direction
-            .toArray()
-            .map((v) => v.toFixed(2)),
-          direction2: newConnection2.direction
-            .toArray()
-            .map((v) => v.toFixed(2)),
-        },
-      });
       console.groupEnd();
     }
 
     // Validate the connection
-    const finalDistance = connection1.position.distanceTo(
-      newConnection2.position
-    );
+    const finalDistance = connection1.position.distanceTo(connection2.position);
     if (finalDistance > 0.01) {
       throw new Error(
         `Failed to align segments: connection points distance ${finalDistance.toFixed(
           3
         )} units apart`
       );
-    }
-
-    // Update the connections on the segments in a type-safe way
-    if (this.isStraightSegment(updatedSegment1)) {
-      updatedSegment1.connections = {
-        ...updatedSegment1.connections,
-        [connectionKey1]: newConnection1,
-      };
-    } else if (this.isCurvedSegment(updatedSegment1)) {
-      updatedSegment1.connections = {
-        ...updatedSegment1.connections,
-        [connectionKey1]: newConnection1,
-      };
-    }
-
-    if (this.isStraightSegment(updatedSegment2)) {
-      updatedSegment2.connections = {
-        ...updatedSegment2.connections,
-        [connectionKey2]: newConnection2,
-      };
-    } else if (this.isCurvedSegment(updatedSegment2)) {
-      updatedSegment2.connections = {
-        ...updatedSegment2.connections,
-        [connectionKey2]: newConnection2,
-      };
     }
 
     return [updatedSegment1, updatedSegment2];

@@ -349,83 +349,105 @@ export class RoadTextureLoader {
   ): HTMLCanvasElement {
     // Create a canvas for the procedural texture
     const canvas = document.createElement('canvas');
+
+    // Set dimensions first - ensure they're non-zero
     canvas.width = 512; // Increased size for better detail
     canvas.height = 512;
+
+    // Get the 2D context
     const ctx = canvas.getContext('2d');
 
-    if (ctx) {
-      // Make a more identifiable texture pattern with "FALLBACK" text
-      ctx.fillStyle = '#555555'; // Lighter base color
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Add some noise for asphalt-like appearance
-      for (let i = 0; i < 10000; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        const size = Math.random() * 3 + 0.5;
-        const brightness = 60 + Math.random() * 40; // Brighter noise
-        ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, 0.5)`;
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Add some larger gravel specks
-      for (let i = 0; i < 500; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        const size = Math.random() * 4 + 1;
-        const brightness = 70 + Math.random() * 40;
-        ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, 0.7)`;
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Add a crosshatch pattern to make it more obvious this is a fallback
-      ctx.strokeStyle = '#ff4444';
-      ctx.lineWidth = 3;
-      const step = 30;
-      for (let i = 0; i < canvas.width; i += step) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, canvas.height);
-        ctx.stroke();
-      }
-      for (let i = 0; i < canvas.height; i += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, i);
-        ctx.lineTo(canvas.width, i);
-        ctx.stroke();
-      }
-
-      // Add a warning border to indicate this is a fallback texture
-      ctx.strokeStyle = '#ff0000';
-      ctx.lineWidth = 16;
-      ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
-
-      // Add text label
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 40px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('FALLBACK', canvas.width / 2, canvas.height / 2 - 20);
-      ctx.fillText('TEXTURE', canvas.width / 2, canvas.height / 2 + 30);
-
-      // Add the filename that failed
-      ctx.font = 'italic 24px Arial';
-      ctx.fillStyle = '#ffaaaa';
-      ctx.fillText(
-        `Failed to load: ${filename}`,
-        canvas.width / 2,
-        canvas.height - 80
+    // Extra validation to ensure canvas has proper dimensions before drawing
+    if (!ctx || canvas.width === 0 || canvas.height === 0) {
+      console.error(
+        'Failed to create canvas with valid dimensions for fallback texture'
       );
-      ctx.fillText(
-        'Check browser console for details',
-        canvas.width / 2,
-        canvas.height - 50
-      );
+
+      // Create a minimal valid canvas as a last resort
+      const minimalCanvas = document.createElement('canvas');
+      minimalCanvas.width = 64;
+      minimalCanvas.height = 64;
+      const minCtx = minimalCanvas.getContext('2d');
+
+      if (minCtx) {
+        minCtx.fillStyle = '#FF0000';
+        minCtx.fillRect(0, 0, 64, 64);
+      }
+
+      return minimalCanvas;
     }
+
+    // Make a more identifiable texture pattern with "FALLBACK" text
+    ctx.fillStyle = '#555555'; // Lighter base color
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Add some noise for asphalt-like appearance
+    for (let i = 0; i < 10000; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const size = Math.random() * 3 + 0.5;
+      const brightness = 60 + Math.random() * 40; // Brighter noise
+      ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, 0.5)`;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Add some larger gravel specks
+    for (let i = 0; i < 500; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const size = Math.random() * 4 + 1;
+      const brightness = 70 + Math.random() * 40;
+      ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, 0.7)`;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Add a crosshatch pattern to make it more obvious this is a fallback
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 3;
+    const step = 30;
+    for (let i = 0; i < canvas.width; i += step) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvas.height);
+      ctx.stroke();
+    }
+    for (let i = 0; i < canvas.height; i += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(canvas.width, i);
+      ctx.stroke();
+    }
+
+    // Add a warning border to indicate this is a fallback texture
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 16;
+    ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+
+    // Add text label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('FALLBACK', canvas.width / 2, canvas.height / 2 - 20);
+    ctx.fillText('TEXTURE', canvas.width / 2, canvas.height / 2 + 30);
+
+    // Add the filename that failed
+    ctx.font = 'italic 24px Arial';
+    ctx.fillStyle = '#ffaaaa';
+    ctx.fillText(
+      `Failed to load: ${filename}`,
+      canvas.width / 2,
+      canvas.height - 80
+    );
+    ctx.fillText(
+      'Check browser console for details',
+      canvas.width / 2,
+      canvas.height - 50
+    );
 
     return canvas;
   }

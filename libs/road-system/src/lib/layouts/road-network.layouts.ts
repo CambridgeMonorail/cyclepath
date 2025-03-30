@@ -72,7 +72,7 @@ export const RoadNetworkLayouts = {
             0,
             -(sideLength / 2)
           ),
-          rotation: new Vector3(0, 0, 0),
+          rotation: new Vector3(0, 0, 0), // No rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -87,7 +87,7 @@ export const RoadNetworkLayouts = {
             0,
             -(sideLength / 2)
           ),
-          rotation: new Vector3(0, 0, 0),
+          rotation: new Vector3(0, 0, 0), // No rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -102,7 +102,7 @@ export const RoadNetworkLayouts = {
             0,
             -(sideLength / 2 - cornerRadius)
           ),
-          rotation: new Vector3(0, 0, 0),
+          rotation: new Vector3(0, 0, 0), // No rotation
           radius: cornerRadius,
           angle: Math.PI / 2, // 90-degree turn
           direction: 'right',
@@ -119,7 +119,7 @@ export const RoadNetworkLayouts = {
             0,
             -(sideLength / 2 - cornerRadius) + straightLength / 2
           ),
-          rotation: new Vector3(0, Math.PI / 2, 0), // Rotated 90 degrees
+          rotation: new Vector3(0, Math.PI / 2, 0), // 90 degrees Y rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -134,7 +134,7 @@ export const RoadNetworkLayouts = {
             0,
             sideLength / 2 - cornerRadius - straightLength / 2
           ),
-          rotation: new Vector3(0, Math.PI / 2, 0), // Rotated 90 degrees
+          rotation: new Vector3(0, Math.PI / 2, 0), // 90 degrees Y rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -149,9 +149,9 @@ export const RoadNetworkLayouts = {
             0,
             sideLength / 2 - cornerRadius
           ),
-          rotation: new Vector3(0, Math.PI / 2, 0), // Rotated 90 degrees
+          rotation: new Vector3(0, Math.PI / 2, 0), // 90 degrees Y rotation
           radius: cornerRadius,
-          angle: Math.PI / 2, // 90-degree turn
+          angle: Math.PI / 2,
           direction: 'right',
           width: roadWidth,
         },
@@ -166,7 +166,7 @@ export const RoadNetworkLayouts = {
             0,
             sideLength / 2
           ),
-          rotation: new Vector3(0, Math.PI, 0), // Rotated 180 degrees
+          rotation: new Vector3(0, Math.PI, 0), // 180 degrees Y rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -181,7 +181,7 @@ export const RoadNetworkLayouts = {
             0,
             sideLength / 2
           ),
-          rotation: new Vector3(0, Math.PI, 0), // Rotated 180 degrees
+          rotation: new Vector3(0, Math.PI, 0), // 180 degrees Y rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -196,9 +196,9 @@ export const RoadNetworkLayouts = {
             0,
             sideLength / 2 - cornerRadius
           ),
-          rotation: new Vector3(0, Math.PI, 0), // Rotated 180 degrees
+          rotation: new Vector3(0, Math.PI, 0), // 180 degrees Y rotation
           radius: cornerRadius,
-          angle: Math.PI / 2, // 90-degree turn
+          angle: Math.PI / 2,
           direction: 'right',
           width: roadWidth,
         },
@@ -213,7 +213,7 @@ export const RoadNetworkLayouts = {
             0,
             sideLength / 2 - cornerRadius - straightLength / 2
           ),
-          rotation: new Vector3(0, -Math.PI / 2, 0), // Rotated -90 degrees
+          rotation: new Vector3(0, -Math.PI / 2, 0), // -90 degrees Y rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -228,7 +228,7 @@ export const RoadNetworkLayouts = {
             0,
             -(sideLength / 2 - cornerRadius) + straightLength / 2
           ),
-          rotation: new Vector3(0, -Math.PI / 2, 0), // Rotated -90 degrees
+          rotation: new Vector3(0, -Math.PI / 2, 0), // -90 degrees Y rotation
           length: straightLength,
           width: roadWidth,
         },
@@ -243,9 +243,9 @@ export const RoadNetworkLayouts = {
             0,
             -(sideLength / 2 - cornerRadius)
           ),
-          rotation: new Vector3(0, -Math.PI / 2, 0), // Rotated -90 degrees
+          rotation: new Vector3(0, -Math.PI / 2, 0), // -90 degrees Y rotation
           radius: cornerRadius,
-          angle: Math.PI / 2, // 90-degree turn
+          angle: Math.PI / 2,
           direction: 'right',
           width: roadWidth,
         },
