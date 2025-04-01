@@ -19,12 +19,13 @@ const ASSET_CONFIG = {
 
   // Prioritize these paths when loading textures (most likely to work first)
   PRIORITY_PATHS: [
+    // Nx monorepo specific paths
+    '/cyclepath/assets/textures/road/',
     // Direct path from root - works in production builds with copied assets
     '/assets/textures/road/',
     // Path with trailing slash - needed for some URL construction cases
     'assets/textures/road/',
-    // Nx monorepo specific paths
-    '/cyclepath/assets/textures/road/',
+
     '/apps/cyclepath/public/assets/textures/road/',
   ],
 };
