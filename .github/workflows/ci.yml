@@ -30,12 +30,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.9.0"
+          node-version: '20.9.0'
 
       # Install pnpm with specific version
       - uses: pnpm/action-setup@v2
         with:
-          version: 8.15.4
+          version: 9.15.0
           run_install: false
 
       # Get pnpm store directory
