@@ -31,6 +31,9 @@ export function RoadSegmentMesh({
   const { width, length, position, rotation } = segment;
   const textures = useRoadTextures(segment);
 
+  // Store the material reference for updates
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+
   // Monitor texture loading state
   useEffect(() => {
     const textureArray = [
@@ -60,9 +63,6 @@ export function RoadSegmentMesh({
       });
     };
   }, [textures]);
-
-  // Store the material reference for updates
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
   // Debug visualization setup
   useEffect(() => {
@@ -173,15 +173,19 @@ export function RoadSegmentMesh({
 
   return (
     <>
-      <group position={[position.x, position.y, position.z]}>
+      <group
+        position={[position.x, position.y, position.z]}
+        rotation={[0, rotation.y, 0]} // Apply ONLY Y-axis rotation to the group
+      >
         <mesh
           ref={meshRef}
-          rotation={[-Math.PI / 2, rotation.y, 0]} // Fixed rotation - only apply Y rotation
+          rotation={[0, 0, 0]} // No additional rotation on the mesh itself
           onPointerOver={() => showDebug && setIsHovered(true)}
           onPointerOut={() => showDebug && setIsHovered(false)}
           receiveShadow
         >
-          <planeGeometry args={[width, length]} />
+          {/* Use BoxGeometry instead of PlaneGeometry to avoid needing X rotation */}
+          <boxGeometry args={[width, 0.05, length]} />
           <meshStandardMaterial
             ref={materialRef}
             color={textures.map ? 0xffffff : 0x555555}
@@ -190,18 +194,17 @@ export function RoadSegmentMesh({
             roughnessMap={textures.roughnessMap || null}
             roughness={0.8}
             metalness={0.2}
-            side={THREE.FrontSide}
           />
         </mesh>
 
         {/* Road markings layer */}
         {textures.markingsMap && (
           <mesh
-            position={[0, 0.01, 0]}
-            rotation={[-Math.PI / 2, rotation.y, 0]} // Fixed rotation - only apply Y rotation
+            position={[0, 0.03, 0]} // Slightly above the road surface
+            rotation={[0, 0, 0]} // No additional rotation
             receiveShadow={false}
           >
-            <planeGeometry args={[width, length]} />
+            <boxGeometry args={[width, 0.01, length]} />
             <meshBasicMaterial
               transparent
               opacity={1.0}
@@ -209,7 +212,6 @@ export function RoadSegmentMesh({
               depthWrite={false}
               alphaTest={0.01}
               map={textures.markingsMap}
-              side={THREE.FrontSide}
             />
           </mesh>
         )}

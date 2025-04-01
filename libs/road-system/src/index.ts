@@ -7,6 +7,7 @@ export * from './lib/types/road.types';
 
 // Export builders
 export * from './lib/builders/road-network.builder';
+export * from './lib/builders/simple-road-builder';
 
 // Export factories
 export * from './lib/factories/road-segment.factory';

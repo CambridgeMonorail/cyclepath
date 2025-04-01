@@ -4,12 +4,10 @@ import { Suspense, useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import {
   RoadNetworkComponent,
-  RoadNetworkBuilder,
-  StandaloneTextureDebugger,
-} from '@cyclepath/road-system';
-import {
+  SimpleRoadBuilder,
   useWebGLContextHandler,
   checkWebGLSupport,
+  StandaloneTextureDebugger,
 } from '@cyclepath/road-system';
 
 import ObstaclesGenerator from './ObstaclesGenerator';
@@ -85,7 +83,7 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
 
   // Use the new square track layout instead of the test network
   const roadNetwork = useMemo(
-    () => RoadNetworkBuilder.createSquareNetwork(80, 7),
+    () => SimpleRoadBuilder.createSquareTrack(7, 8),
     []
   );
 
@@ -320,7 +318,7 @@ export default GameScene;
  * Helper component that displays camera position and controls info in debug mode
  */
 const CameraDebugHelper = () => {
-  const { camera, scene } = useThree();
+  const { camera } = useThree();
   const [cameraInfo, setCameraInfo] = useState({
     position: { x: 0, y: 0, z: 0 },
     rotation: { x: 0, y: 0, z: 0 },
@@ -334,7 +332,7 @@ const CameraDebugHelper = () => {
     const euler = new THREE.Euler().setFromQuaternion(camera.quaternion);
 
     // Get orbit controls target if available
-    const controls = (camera as any).userData.controls;
+    const controls = camera.userData.controls as { target?: THREE.Vector3 };
     const target = controls?.target || new THREE.Vector3(0, 0, 0);
 
     // Update state with new values
