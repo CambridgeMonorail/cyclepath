@@ -8,6 +8,7 @@ type PlayerProps = {
   onMove: (pos: { x: number; z: number }) => void;
   roadNetwork: RoadNetwork;
   onRotationChange?: (rotation: number) => void; // Add new prop to report rotation changes
+  initialRotation?: number; // Add initialRotation prop
 };
 
 // New component for camera that follows the player
@@ -52,9 +53,10 @@ export const Player = ({
   onMove,
   roadNetwork,
   onRotationChange,
+  initialRotation,
 }: PlayerProps) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const [rotation, setRotation] = useState(0);
+  const [rotation, setRotation] = useState(initialRotation || 0);
   const [keys, setKeys] = useState({
     forward: false,
     backward: false,

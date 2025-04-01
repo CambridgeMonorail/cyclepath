@@ -82,6 +82,7 @@ type GameSceneProps = {
 export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
   const [playerRotation, setPlayerRotation] = useState(0);
+  const [initialPlayerRotation, setInitialPlayerRotation] = useState(Math.PI / 2); // Default to East (π/2)
 
   // Use the new square track layout instead of the test network
   const roadNetwork = useMemo(
@@ -192,6 +193,7 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
                 }}
                 roadNetwork={roadNetwork}
                 onRotationChange={setPlayerRotation}
+                initialRotation={initialPlayerRotation}
               />
               {/* Add the PlayerCamera component to follow the player */}
               <PlayerCamera
