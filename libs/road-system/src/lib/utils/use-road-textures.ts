@@ -14,6 +14,7 @@ import { RoadTextureLoader } from './road-texture.utils';
  * @param type Type of texture to create (asphalt, markings, etc)
  * @param color Primary color of the texture
  * @param size Size of the canvas
+ * @param options Additional options for texture creation (rotation, direction)
  * @returns A CanvasTexture instance
  */
 const createCanvasTexture = (
@@ -24,7 +25,11 @@ const createCanvasTexture = (
     | 'markings-intersection'
     | 'markings-junction',
   color = '#333333',
-  size = 256
+  size = 256,
+  options?: {
+    rotation?: number;
+    curveDirection?: 'left' | 'right';
+  }
 ): CanvasTexture => {
   // Create canvas and get context
   const canvas = document.createElement('canvas');
@@ -101,13 +106,51 @@ const createCanvasTexture = (
       ctx.stroke();
       break;
 
-    case 'markings-curve':
+    case 'markings-curve': {
+      // Save the canvas state before transformations
+      ctx.save();
+
+      // For curves, we need to handle the orientation more carefully
+      // Default curve is a 90-degree turn from bottom to right (north to east)
+      const curveDirection = options?.curveDirection || 'right';
+
+      // Calculate start and end angles based on curve direction
+      // We use the standard trigonometric angle system where:
+      // - 0 radians points to the right (east)
+      // - -PI/2 radians points up (north)
+      // - -PI or PI radians points to the left (west)
+      // - PI/2 radians points down (south)
+      let startAngle = -Math.PI / 2; // Default start from bottom (north)
+      let endAngle = 0; // Default end at right (east)
+
+      if (curveDirection === 'left') {
+        startAngle = -Math.PI / 2; // Start from bottom (north)
+        endAngle = -Math.PI; // End at left (west)
+      }
+
+      // Clear the entire canvas and set a transparent background
+      ctx.clearRect(0, 0, size, size);
+
       // Draw curved center line - solid yellow
       ctx.strokeStyle = '#FFDD00';
       ctx.lineWidth = size * 0.04;
       ctx.setLineDash([]); // Solid line
+
+      // Center point is at the corner of the curve
+      const cornerX = curveDirection === 'right' ? 0 : size;
+      const cornerY = size;
+      const radius = size * 0.9; // Main curve radius
+
+      // Draw the center line
       ctx.beginPath();
-      ctx.arc(0, size, size * 0.9, -Math.PI / 2, 0);
+      ctx.arc(
+        cornerX,
+        cornerY,
+        radius,
+        startAngle,
+        endAngle,
+        curveDirection === 'left'
+      );
       ctx.stroke();
 
       // Draw curved dashed lines - white
@@ -117,14 +160,32 @@ const createCanvasTexture = (
 
       // Inner lane marking
       ctx.beginPath();
-      ctx.arc(0, size, size * 0.7, -Math.PI / 2, 0);
+      ctx.arc(
+        cornerX,
+        cornerY,
+        size * 0.7,
+        startAngle,
+        endAngle,
+        curveDirection === 'left'
+      );
       ctx.stroke();
 
       // Outer lane marking
       ctx.beginPath();
-      ctx.arc(0, size, size * 1.1, -Math.PI / 2, 0);
+      ctx.arc(
+        cornerX,
+        cornerY,
+        size * 1.1,
+        startAngle,
+        endAngle,
+        curveDirection === 'left'
+      );
       ctx.stroke();
+
+      // Restore the canvas state
+      ctx.restore();
       break;
+    }
 
     case 'markings-intersection':
       // Draw crosswalk lines
@@ -170,6 +231,15 @@ const createCanvasTexture = (
 
   // Important: preserve transparency for road markings
   texture.premultiplyAlpha = true;
+
+  // Set the center of rotation to the middle of the texture
+  // This is critical for proper rotation of the texture
+  texture.center.set(0.5, 0.5);
+
+  // Apply rotation from options if specified
+  if (options?.rotation !== undefined) {
+    texture.rotation = options.rotation;
+  }
 
   return texture;
 };
@@ -435,11 +505,24 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
       if (repeat) roughnessTexture.repeat.copy(repeat);
     }
 
-    // Generate appropriate markings texture based on segment type
+    // Create appropriate markings texture based on segment type
     if (segment.type === 'straight') {
       markingsTexture = createCanvasTexture('markings-straight', '#ffffff');
     } else if (segment.type === 'curve') {
-      markingsTexture = createCanvasTexture('markings-curve', '#ffffff');
+      // Determine curve direction based on segment properties
+      // In our road system, curves may have a 'direction' property in the segment
+      const direction = segment.direction === 'left' ? 'left' : 'right';
+
+      // Create the curve markings with the proper direction
+      markingsTexture = createCanvasTexture('markings-curve', '#ffffff', 256, {
+        rotation: textureOptions.rotation || 0,
+        curveDirection: direction,
+      });
+
+      // Set the center point for texture rotation to ensure markings align correctly
+      if (markingsTexture) {
+        markingsTexture.center.set(0.5, 0.5);
+      }
     } else if (segment.type === 'intersection') {
       markingsTexture = createCanvasTexture('markings-intersection', '#ffffff');
     } else if (segment.type === 'junction') {

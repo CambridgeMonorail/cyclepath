@@ -3,7 +3,7 @@ import { Text } from '@react-three/drei';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import { RoadSegment } from '../types/road.types';
+import { CurvedRoadSegment, RoadSegment } from '../types/road.types';
 import { useRoadTextures } from '../utils/use-road-textures';
 import { useCSS2DRenderer } from '../utils/useCSS2DRenderer';
 
@@ -33,6 +33,8 @@ export function RoadSegmentMesh({
 
   // Store the material reference for updates
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  // Add ref for markings material
+  const markingsMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   // Monitor texture loading state
   useEffect(() => {
@@ -46,6 +48,9 @@ export function RoadSegmentMesh({
     const handleTextureLoad = () => {
       if (materialRef.current) {
         materialRef.current.needsUpdate = true;
+      }
+      if (markingsMaterialRef.current && textures.markingsMap) {
+        markingsMaterialRef.current.needsUpdate = true;
       }
     };
 
@@ -171,6 +176,55 @@ export function RoadSegmentMesh({
     }
   });
 
+  // Set the proper texture rotation for the road markings based on segment type
+  useEffect(() => {
+    if (markingsMaterialRef.current && textures.markingsMap) {
+      const markingsTexture = textures.markingsMap;
+
+      // For curves, we need to ensure the markings are properly oriented
+      if (segment.type === 'curve') {
+        // Get the curve-specific properties
+        const curveSegment = segment as CurvedRoadSegment;
+        const curveDirection = curveSegment.direction || 'right';
+
+        // Always set the texture's rotation center to the middle
+        markingsTexture.center.set(0.5, 0.5);
+
+        // Calculate texture rotation based on segment rotation and curve direction
+        // This is critical for proper alignment with adjoining straight sections
+        let textureRotation = segment.rotation.y;
+
+        // For right curves, no additional adjustment is needed
+        // For left curves, we need an additional rotation to compensate for how they're drawn
+        if (curveDirection === 'left') {
+          // The specific adjustment needed depends on the segment's placement in the network
+          // This value was determined by testing different configurations
+          textureRotation += Math.PI;
+        }
+
+        // Apply the calculated rotation to the texture
+        markingsTexture.rotation = textureRotation;
+
+        // Force material update
+        markingsMaterialRef.current.needsUpdate = true;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `Curve segment ${
+              segment.id
+            } (${curveDirection}): segment rotation=${(
+              (segment.rotation.y * 180) /
+              Math.PI
+            ).toFixed(1)}°, texture rotation=${(
+              (markingsTexture.rotation * 180) /
+              Math.PI
+            ).toFixed(1)}°`
+          );
+        }
+      }
+    }
+  }, [segment, textures.markingsMap]);
+
   return (
     <>
       <group
@@ -206,6 +260,7 @@ export function RoadSegmentMesh({
           >
             <boxGeometry args={[width, 0.01, length]} />
             <meshBasicMaterial
+              ref={markingsMaterialRef}
               transparent
               opacity={1.0}
               blending={THREE.NormalBlending}

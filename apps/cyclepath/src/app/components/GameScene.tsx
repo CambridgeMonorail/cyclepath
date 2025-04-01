@@ -149,9 +149,9 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
         <Suspense fallback={null}>
           <WebGLContextManager />
           {/* Add the SkyBox component to create a background for the scene */}
-          <SkyBox topColor="#0F172A" bottomColor="#38BDF8" size={2000} />
+          <SkyBox size={1024} />
           {/* Add the Floor component to create a green ground plane */}
-          <Floor color="#90C95B" size={2000} receiveShadow />
+          <Floor color="#90C95B" size={1024} receiveShadow />
           <ambientLight intensity={0.5} />
           <directionalLight
             position={[10, 10, 5]}
