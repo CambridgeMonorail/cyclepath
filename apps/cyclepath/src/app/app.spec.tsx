@@ -19,6 +19,6 @@ describe('App', () => {
         <App />
       </BrowserRouter>
     );
-    expect(getByText('Welcome to Cyclepath')).toBeTruthy();
+    expect(getByText('Total Cyclepath')).toBeTruthy();
   });
 });
