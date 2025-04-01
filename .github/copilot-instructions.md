@@ -24,6 +24,12 @@ Cyclepath is a humorous 3D racing game where players navigate a cyclist through 
 
 When making changes always check the editor for typescript errors before assuming the code is complete or trying to run it.
 
+// Ensure road tiles are always flat (aligned to the XZ plane)
+// Only allow rotation around the Y axis for direction changes
+tile.rotation.x = 0;
+tile.rotation.z = 0;
+// tile.rotation.y = someAngle; // only this is allowed to change
+
 ## 3D Development
 
 - Use React Three Fiber for declarative 3D components

@@ -176,7 +176,7 @@ export function RoadSegmentMesh({
       <group position={[position.x, position.y, position.z]}>
         <mesh
           ref={meshRef}
-          rotation={[-Math.PI / 2, rotation.y, rotation.z]}
+          rotation={[-Math.PI / 2, rotation.y, 0]} // Fixed rotation - only apply Y rotation
           onPointerOver={() => showDebug && setIsHovered(true)}
           onPointerOut={() => showDebug && setIsHovered(false)}
           receiveShadow
@@ -198,7 +198,7 @@ export function RoadSegmentMesh({
         {textures.markingsMap && (
           <mesh
             position={[0, 0.01, 0]}
-            rotation={[-Math.PI / 2, rotation.y, rotation.z]}
+            rotation={[-Math.PI / 2, rotation.y, 0]} // Fixed rotation - only apply Y rotation
             receiveShadow={false}
           >
             <planeGeometry args={[width, length]} />

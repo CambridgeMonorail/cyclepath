@@ -492,8 +492,8 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
     const result: RoadTextures = {
       map: asphaltTexture,
       normalMap: normalMapTexture,
-      roughnessMap: roughnessTexture,
-      markingsMap: markingsTexture,
+      roughnessMap: roughnessTexture as CanvasTexture | Texture,
+      markingsMap: markingsTexture as CanvasTexture | null,
     };
 
     console.log(

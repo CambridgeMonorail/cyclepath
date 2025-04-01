@@ -23,6 +23,9 @@ const ASSET_CONFIG = {
     '/assets/textures/road/',
     // Path with trailing slash - needed for some URL construction cases
     'assets/textures/road/',
+    // Nx monorepo specific paths
+    '/cyclepath/assets/textures/road/',
+    '/apps/cyclepath/public/assets/textures/road/',
   ],
 };
 
@@ -60,6 +63,10 @@ const resolveAssetPath = (path: string): string[] => {
       // Alternative paths that might work in different environments
       `/cyclepath/assets/textures/road/${filename}`,
       `cyclepath/assets/textures/road/${filename}`,
+
+      // Nx monorepo specific paths - add these for Nx project structure
+      `/apps/cyclepath/public/assets/textures/road/${filename}`,
+      `apps/cyclepath/public/assets/textures/road/${filename}`,
 
       // Fallback paths for local dev environments
       `public/assets/textures/road/${filename}`,
@@ -209,8 +216,35 @@ export class RoadTextureLoader {
     );
     console.log(`Running in env: ${import.meta.env.MODE || 'unknown'}`);
 
-    // Test load the default texture to warm up path resolution cache
+    // Check if we're in development mode
+    if (import.meta.env.MODE === 'development') {
+      console.log(
+        'Development mode detected, using enhanced texture loading strategy'
+      );
+
+      // Log all known texture paths we'll try
+      this.logTextureSearchPaths();
+    }
+
     this.isInitialized = true;
+  }
+
+  /**
+   * Log all the paths we'll search for textures to help with debugging
+   */
+  private static logTextureSearchPaths() {
+    const testPaths = resolveAssetPath('asphalt.jpg');
+    console.log('🔍 Texture search paths for development:');
+    console.table(testPaths);
+
+    // Add additional development-specific instructions
+    console.log(`
+    ℹ️ Texture Loading Tips:
+    - Make sure texture files exist in: /public/assets/textures/road/
+    - Current BASE_URL is: ${import.meta.env.BASE_URL || '/'}
+    - In Nx monorepo, public assets are in: apps/cyclepath/public/
+    - If textures fail to load, check network tab for 404 errors
+    `);
   }
 
   /**
@@ -251,7 +285,7 @@ export class RoadTextureLoader {
         cachedTexture.image.width > 0 &&
         cachedTexture.image.height > 0
       ) {
-        console.log(`Using cached texture for: ${cacheKey}`);
+        // console.log(`Using cached texture for: ${cacheKey}`);
 
         // Update repeat and rotation if needed, even for cached textures
         if (repeat) {
@@ -472,5 +506,89 @@ export class RoadTextureLoader {
     console.log('Cache entries:', Object.keys(this.textureCache));
     console.log('Known good paths:', this.texturePaths);
     console.log('=========================');
+  }
+
+  /**
+   * A utility function to check if road textures are loading correctly
+   * This can be called during development to diagnose texture loading issues
+   */
+  public static verifyTextureLoading(): void {
+    console.group('🔍 Road Texture Loading Verification');
+    console.log('Checking if road textures can be loaded correctly...');
+
+    const testTextures = [
+      'asphalt.jpg',
+      'asphalt_normal.png',
+      'asphalt_roughness.png',
+    ];
+
+    console.log(`Will attempt to load ${testTextures.length} textures:`);
+    console.table(testTextures);
+
+    let successes = 0;
+    let failures = 0;
+
+    const startTime = performance.now();
+
+    testTextures.forEach((texturePath) => {
+      const texture = this.loadTexture(texturePath);
+
+      // Add a listener to track when the texture actually loads
+      if (texture && texture.source) {
+        const image = texture.source.data;
+        if (image && image instanceof HTMLImageElement) {
+          if (image.complete) {
+            if (image.naturalWidth === 0) {
+              console.error(
+                `❌ Texture ${texturePath} failed to load (zero width)`
+              );
+              failures++;
+            } else {
+              console.log(`✅ Texture ${texturePath} loaded successfully`);
+              successes++;
+            }
+          } else {
+            image.onload = () => {
+              console.log(`✅ Texture ${texturePath} loaded successfully`);
+              successes++;
+              if (successes + failures === testTextures.length) {
+                const endTime = performance.now();
+                console.log(
+                  `Texture verification complete in ${(
+                    endTime - startTime
+                  ).toFixed(2)}ms`
+                );
+                console.log(`${successes} successes, ${failures} failures`);
+                console.groupEnd();
+              }
+            };
+            image.onerror = () => {
+              console.error(`❌ Texture ${texturePath} failed to load`);
+              failures++;
+              if (successes + failures === testTextures.length) {
+                const endTime = performance.now();
+                console.log(
+                  `Texture verification complete in ${(
+                    endTime - startTime
+                  ).toFixed(2)}ms`
+                );
+                console.log(`${successes} successes, ${failures} failures`);
+                console.groupEnd();
+              }
+            };
+          }
+        }
+      }
+    });
+
+    // If all textures were already loaded from cache, end the group
+    if (successes + failures === testTextures.length) {
+      const endTime = performance.now();
+      console.log(
+        `Texture verification complete in ${(endTime - startTime).toFixed(2)}ms`
+      );
+      console.log(`${successes} successes, ${failures} failures`);
+      console.groupEnd();
+    }
   }
 }

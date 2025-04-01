@@ -85,7 +85,7 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
 
   // Use the new square track layout instead of the test network
   const roadNetwork = useMemo(
-    () => RoadNetworkBuilder.createSquareNetwork(80, 15, 7),
+    () => RoadNetworkBuilder.createSquareNetwork(80, 7),
     []
   );
 
