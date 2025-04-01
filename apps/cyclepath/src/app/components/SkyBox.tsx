@@ -25,8 +25,7 @@ type SkyBoxProps = {
 };
 
 /**
- * Properly typed TextureError for the error handling
- * This matches the structure of error objects returned by Three.js texture loading
+ * Type definition for texture loading errors
  */
 type TextureError = {
   type?: string;
@@ -37,23 +36,71 @@ type TextureError = {
 };
 
 /**
+ * Resolves possible paths for skybox textures based on the current environment
+ * Prioritizes paths based on known successful patterns from road-texture.utils.ts
+ */
+const resolveSkyboxPaths = (basePath: string): string[] => {
+  // Base URL from environment
+  const baseUrl = import.meta.env.BASE_URL || '/';
+
+  console.log('baseUrl', baseUrl);
+  console.log('basePath', basePath);
+
+  // If it's a full URL, return it directly
+  if (basePath.startsWith('http')) {
+    return [basePath];
+  }
+
+  // Normalize path - ensure it doesn't have trailing slash
+  const normalizedPath = basePath.replace(/\/+$/, '');
+
+  // Generate an array of possible paths to try - prioritizing paths that work for road textures
+  return [
+    // Priority 1: Direct paths with cyclepath prefix - these work for road textures
+    `/cyclepath/assets/textures/cambridge-skybox`,
+
+    // Priority 2: Localhost full URL path that worked in logs
+    `http://localhost:4200/cyclepath/assets/textures/cambridge-skybox`,
+
+    // Priority 3: Other cyclepath variations
+    `/cyclepath${normalizedPath}`,
+    `${window.location.origin}/cyclepath/assets/textures/cambridge-skybox`,
+
+    // Lower priority: Standard direct paths
+    normalizedPath,
+    normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`,
+
+    // Even lower priority: Other variations
+    `/assets/textures/cambridge-skybox`,
+    `assets/textures/cambridge-skybox`,
+    `${baseUrl}/assets/textures/cambridge-skybox`,
+  ].filter(Boolean); // Remove any empty entries
+};
+
+/**
  * Component that renders a skybox background using cube texture mapping.
  * The skybox can either use a set of 6 images or a solid color.
  */
 export const SkyBox = ({
-  imagePath = '/cyclepath/assets/textures/cambridge-skybox',
+  imagePath = '/assets/textures/cambridge-skybox',
   bottomColor = '#87CEEB',
   size = 1000,
   onLoadingStatus,
 }: SkyBoxProps) => {
   const { scene } = useThree();
   const [loadingFailed, setLoadingFailed] = useState(false);
-  // Use ref to prevent duplicate skybox creation during development hot reloading
+  // Use refs to prevent duplicate skybox creation during development hot reloading
   const skyboxRef = useRef<THREE.Mesh | null>(null);
   const mountedRef = useRef(false);
-  // Track loaded textures and errors
   const loadedTextureCountRef = useRef(0);
   const textureErrorsRef = useRef<string[]>([]);
+  const pathIndexRef = useRef(0);
+  const pathsToTryRef = useRef<string[]>([]);
+
+  // Initialize possible paths on first render
+  if (pathsToTryRef.current.length === 0) {
+    pathsToTryRef.current = resolveSkyboxPaths(imagePath);
+  }
 
   useEffect(() => {
     // Prevent duplicate effect execution due to StrictMode or hot reloading
@@ -66,6 +113,7 @@ export const SkyBox = ({
     if (process.env.NODE_ENV === 'development') {
       console.log('SkyBox: Component mounted with', {
         imagePath,
+        pathsToTry: pathsToTryRef.current,
         bottomColor,
         size,
         inDevMode: process.env.NODE_ENV === 'development',
@@ -82,18 +130,63 @@ export const SkyBox = ({
     }
 
     let material: THREE.Material | THREE.Material[];
-    let skybox: THREE.Mesh;
+    let skybox: THREE.Mesh | null = null;
     let originalBackground = scene.background;
 
-    // If an image path is provided, use a cube texture
-    if (imagePath && !loadingFailed) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('SkyBox: Loading cube texture from path:', imagePath);
+    // Try loading textures with path resolution fallback
+    const tryLoadSkyboxTextures = (pathIndex: number) => {
+      // If we've exhausted all paths, use the fallback color
+      if (pathIndex >= pathsToTryRef.current.length || loadingFailed) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('SkyBox: Using solid color fallback:', bottomColor);
+        }
+
+        originalBackground = scene.background;
+        scene.background = new THREE.Color(bottomColor);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('SkyBox: Applied color to scene background');
+        }
+
+        // Create a simple colored skybox mesh
+        material = new THREE.MeshBasicMaterial({
+          color: bottomColor,
+          side: THREE.BackSide,
+        });
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('SkyBox: Created material with solid color');
+        }
+
+        skybox = new THREE.Mesh(geometry, material);
+        skybox.rotation.y = 0; // Ensure we only rotate around Y axis
+        skybox.rotation.x = 0; // Ensure flat alignment to XZ plane
+        skybox.rotation.z = 0; // Ensure flat alignment to XZ plane
+        scene.add(skybox);
+        skyboxRef.current = skybox;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('SkyBox: Added solid-color skybox mesh to scene');
+        }
+
+        return;
       }
 
-      const loader = new THREE.CubeTextureLoader();
+      const currentPath = pathsToTryRef.current[pathIndex];
 
-      // Log loading attempt for each texture face in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `SkyBox: Trying path ${pathIndex + 1}/${
+            pathsToTryRef.current.length
+          }: ${currentPath}`
+        );
+      }
+
+      // Reset texture tracking counters
+      loadedTextureCountRef.current = 0;
+      textureErrorsRef.current = [];
+
+      const loader = new THREE.CubeTextureLoader();
       const textureFaces = [
         'px.jpg',
         'nx.jpg',
@@ -103,19 +196,8 @@ export const SkyBox = ({
         'nz.jpg',
       ];
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          'SkyBox: Loading texture faces:',
-          textureFaces.map((face) => `${imagePath}/${face}`)
-        );
-      }
-
       try {
-        // Reset texture tracking counters
-        loadedTextureCountRef.current = 0;
-        textureErrorsRef.current = [];
-
-        const texture = loader.setPath(imagePath).load(
+        const texture = loader.setPath(currentPath + '/').load(
           textureFaces,
           // OnLoad callback - called for each texture face when loaded
           (loadedTexture) => {
@@ -124,7 +206,9 @@ export const SkyBox = ({
             // Check if all 6 textures are loaded
             if (loadedTextureCountRef.current === 6) {
               if (process.env.NODE_ENV === 'development') {
-                console.log('SkyBox: All textures successfully loaded');
+                console.log(
+                  `SkyBox: ✅ All textures successfully loaded from ${currentPath}`
+                );
 
                 // Log image dimensions to verify correct loading
                 if (loadedTexture.image) {
@@ -135,6 +219,8 @@ export const SkyBox = ({
                 }
               }
 
+              // Store the successful path index for future reference
+              pathIndexRef.current = pathIndex;
               setLoadingFailed(false);
 
               // Call the onLoadingStatus callback if provided
@@ -148,7 +234,7 @@ export const SkyBox = ({
                   const percentComplete =
                     (progress.loaded / progress.total) * 100;
                   console.log(
-                    `SkyBox: Textures loading progress: ${Math.round(
+                    `SkyBox: Textures loading progress from ${currentPath}: ${Math.round(
                       percentComplete
                     )}%`
                   );
@@ -158,13 +244,14 @@ export const SkyBox = ({
           // OnError callback - use type assertion to handle the unknown error type
           (err: unknown) => {
             if (process.env.NODE_ENV === 'development') {
-              console.error('SkyBox: Error loading textures:', err);
-              console.log('SkyBox: Falling back to solid color background');
+              /*               console.error(
+                `SkyBox: ❌ Error loading texture from ${currentPath}:`,
+                err
+              ); */
             }
 
             // Try to extract error information safely from the unknown type
             let errorSource = 'Unknown source';
-            let errorMessage = 'Unknown texture loading error';
 
             // Handle different error types that might be returned by Three.js
             if (err && typeof err === 'object') {
@@ -178,29 +265,18 @@ export const SkyBox = ({
                 const target = error.currentTarget as HTMLImageElement;
                 errorSource = target.src || errorSource;
               }
-
-              // Extract error message if available
-              if ('message' in error && typeof error.message === 'string') {
-                errorMessage = error.message;
-              }
             }
 
             // Track error information for reporting
-            textureErrorsRef.current.push(`${errorMessage} (${errorSource})`);
+            textureErrorsRef.current.push(
+              `Failed to load from ${currentPath} (${errorSource})`
+            );
 
-            // Only set loading failed if all textures failed or we have more than 3 failures
-            if (textureErrorsRef.current.length > 3) {
-              setLoadingFailed(true);
-
-              // Call the onLoadingStatus callback if provided
-              onLoadingStatus?.({
-                success: false,
-                errors: textureErrorsRef.current,
-              });
-
-              // Try fallback to solid color
-              scene.background = new THREE.Color(bottomColor);
+            // Try the next path
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`SkyBox: Trying next path option...`);
             }
+            tryLoadSkyboxTextures(pathIndex + 1);
           }
         );
 
@@ -208,54 +284,11 @@ export const SkyBox = ({
         originalBackground = scene.background;
         scene.background = texture;
 
-        // Check if texture has valid data - a real indicator of success
-        // This requires adding an event listener to the texture's source
-        if (texture && texture.source) {
-          const checkTextureValidity = () => {
-            const images = texture.source.data;
-            if (Array.isArray(images)) {
-              const isValid = images.every(
-                (img) => img && img.complete && img.width > 0 && img.height > 0
-              );
-
-              if (isValid) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(
-                    'SkyBox: Texture source verified as valid with dimensions:',
-                    {
-                      count: images.length,
-                      dimensions: images
-                        .map((img) => `${img.width}x${img.height}`)
-                        .join(', '),
-                    }
-                  );
-                }
-              } else {
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn('SkyBox: Texture source verification failed');
-                }
-                setLoadingFailed(true);
-              }
-            }
-          };
-
-          // Check after a short delay to ensure images have loaded
-          setTimeout(checkTextureValidity, 500);
-        }
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('SkyBox: Applied texture to scene background');
-        }
-
         // Create a mesh with the texture
         material = new THREE.MeshBasicMaterial({
           envMap: texture,
           side: THREE.BackSide,
         });
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('SkyBox: Created material with environment map');
-        }
 
         // Create and add the skybox mesh to the scene
         skybox = new THREE.Mesh(geometry, material);
@@ -266,62 +299,52 @@ export const SkyBox = ({
         skyboxRef.current = skybox;
 
         if (process.env.NODE_ENV === 'development') {
-          console.log('SkyBox: Added skybox mesh to scene');
+          console.log(
+            `SkyBox: Added skybox mesh to scene using ${currentPath}`
+          );
         }
+
+        // Check if texture has valid data after a short delay
+        setTimeout(() => {
+          if (texture && texture.source) {
+            const images = texture.source.data;
+            if (Array.isArray(images)) {
+              const isValid = images.every(
+                (img) => img && img.complete && img.width > 0 && img.height > 0
+              );
+
+              if (isValid) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(
+                    `SkyBox: ✅ Texture source verified as valid from ${currentPath}`
+                  );
+                }
+              } else {
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn(
+                    `SkyBox: ⚠️ Texture source verification failed for ${currentPath}`
+                  );
+                }
+                // Try the next path if this one didn't actually work
+                tryLoadSkyboxTextures(pathIndex + 1);
+              }
+            }
+          }
+        }, 500);
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
           console.error(
-            'SkyBox: Error setting up skybox with textures:',
+            `SkyBox: ❌ Exception when setting up skybox with textures from ${currentPath}:`,
             error
           );
         }
-        setLoadingFailed(true);
-        onLoadingStatus?.({
-          success: false,
-          errors: [
-            error instanceof Error
-              ? error.message
-              : 'Unknown error setting up skybox',
-          ],
-        });
-        // Continue to fallback implementation
+        // Try the next path
+        tryLoadSkyboxTextures(pathIndex + 1);
       }
-    }
+    };
 
-    // Fallback to solid color if no image path, loading failed, or exception occurred
-    if (!imagePath || loadingFailed || !skyboxRef.current) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('SkyBox: Using solid color:', bottomColor);
-      }
-
-      originalBackground = scene.background;
-      scene.background = new THREE.Color(bottomColor);
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('SkyBox: Applied color to scene background');
-      }
-
-      // Create a simple colored skybox mesh
-      material = new THREE.MeshBasicMaterial({
-        color: bottomColor,
-        side: THREE.BackSide,
-      });
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('SkyBox: Created material with solid color');
-      }
-
-      skybox = new THREE.Mesh(geometry, material);
-      skybox.rotation.y = 0; // Ensure we only rotate around Y axis
-      skybox.rotation.x = 0; // Ensure flat alignment to XZ plane
-      skybox.rotation.z = 0; // Ensure flat alignment to XZ plane
-      scene.add(skybox);
-      skyboxRef.current = skybox;
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('SkyBox: Added solid-color skybox mesh to scene');
-      }
-    }
+    // Start trying to load from the first path
+    tryLoadSkyboxTextures(0);
 
     return () => {
       if (process.env.NODE_ENV === 'development') {

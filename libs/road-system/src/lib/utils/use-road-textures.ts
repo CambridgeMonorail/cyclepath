@@ -375,12 +375,6 @@ const ensureTextureConfig = (
  */
 export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
   return useMemo(() => {
-    console.log(
-      'useRoadTextures called for segment:',
-      segment.id,
-      segment.type
-    );
-
     // Create default texture options if none are provided
     const defaultOptions: RoadTextureOptions = {
       // Use just the filename - the resolver will handle the path
