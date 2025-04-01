@@ -53,14 +53,6 @@ const resolveAssetPath = (path: string): string[] => {
   if (!path.includes('/')) {
     // Build a list of possible paths to try - ordered by priority/likelihood
     const possiblePaths = [
-      // Direct root paths - often work in production builds
-      `/assets/textures/road/${filename}`,
-      `assets/textures/road/${filename}`,
-
-      // With BASE_URL prefix - important for GitHub Pages deployments
-      `${baseUrl}/assets/textures/road/${filename}`,
-      baseUrl ? `${baseUrl}assets/textures/road/${filename}` : '',
-
       // Alternative paths that might work in different environments
       `/cyclepath/assets/textures/road/${filename}`,
       `cyclepath/assets/textures/road/${filename}`,
@@ -72,6 +64,14 @@ const resolveAssetPath = (path: string): string[] => {
       // Fallback paths for local dev environments
       `public/assets/textures/road/${filename}`,
       `src/assets/textures/road/${filename}`,
+
+      // With BASE_URL prefix - important for GitHub Pages deployments
+      `${baseUrl}/assets/textures/road/${filename}`,
+      baseUrl ? `${baseUrl}assets/textures/road/${filename}` : '',
+
+      // Direct root paths - moved lower in priority as they're failing frequently
+      `assets/textures/road/${filename}`,
+      `/assets/textures/road/${filename}`,
     ].filter(Boolean); // Remove empty strings
 
     console.log(`Will try these paths for ${filename}:`, possiblePaths);
@@ -203,6 +203,8 @@ export class RoadTextureLoader {
   private static textureCache: Record<string, Texture> = {};
   private static texturePaths: Record<string, string> = {}; // Track which path succeeded
   private static isInitialized = false;
+  private static _pendingLoads: Record<string, boolean> = {}; // Track pending loads
+  private static _pendingTextureUpdates: Record<string, Texture[]> = {}; // Track pending texture updates
 
   /**
    * Initialize the loader and test paths to find the correct one for this environment
@@ -271,11 +273,6 @@ export class RoadTextureLoader {
     // Check if we have a successful path cached for this texture
     const knownWorkingPath = this.texturePaths[cacheKey];
 
-    // Resolve all possible asset paths to try
-    const pathsToTry = knownWorkingPath
-      ? [knownWorkingPath] // Try the known working path first if we have one
-      : resolveAssetPath(path);
-
     // Check for cached texture - but verify it has a valid image
     if (this.textureCache[cacheKey]) {
       const cachedTexture = this.textureCache[cacheKey];
@@ -286,7 +283,10 @@ export class RoadTextureLoader {
         cachedTexture.image.width > 0 &&
         cachedTexture.image.height > 0
       ) {
-        // console.log(`Using cached texture for: ${cacheKey}`);
+        // Only log in development mode to reduce console noise
+        if (import.meta.env.MODE === 'development') {
+          console.log(`Using cached texture for: ${cacheKey}`);
+        }
 
         // Update repeat and rotation if needed, even for cached textures
         if (repeat) {
@@ -307,6 +307,41 @@ export class RoadTextureLoader {
       }
     }
 
+    // If we're already loading this texture, don't start another request
+    if (this._pendingLoads && this._pendingLoads[cacheKey]) {
+      console.log(
+        `Texture ${cacheKey} is already being loaded, returning existing promise`
+      );
+
+      // Create a new texture that will be updated when the pending load completes
+      const texture = new Texture();
+      texture.wrapS = RepeatWrapping;
+      texture.wrapT = RepeatWrapping;
+      texture.colorSpace = SRGBColorSpace;
+
+      if (repeat) {
+        texture.repeat.copy(repeat);
+      }
+
+      if (rotation !== 0) {
+        texture.rotation = rotation;
+      }
+
+      // Add this texture to the update list for when load completes
+      if (!this._pendingTextureUpdates) {
+        this._pendingTextureUpdates = {};
+      }
+
+      if (!this._pendingTextureUpdates[cacheKey]) {
+        this._pendingTextureUpdates[cacheKey] = [];
+      }
+
+      // When the pending load completes, this texture will be updated
+      this._pendingTextureUpdates[cacheKey].push(texture);
+
+      return texture;
+    }
+
     console.log(`Creating new texture for: ${cacheKey}`);
 
     // Create a preliminary texture to return immediately (will be updated when loaded)
@@ -322,6 +357,19 @@ export class RoadTextureLoader {
     if (rotation !== 0) {
       texture.rotation = rotation;
     }
+
+    // Initialize pending loads tracking if needed
+    if (!this._pendingLoads) {
+      this._pendingLoads = {};
+    }
+
+    // Track that we're loading this texture to prevent duplicate requests
+    this._pendingLoads[cacheKey] = true;
+
+    // Resolve all possible asset paths to try
+    const pathsToTry = knownWorkingPath
+      ? [knownWorkingPath] // Try the known working path first if we have one
+      : resolveAssetPath(path);
 
     // Try loading from different path variations
     tryLoadingFromVariations(
@@ -351,6 +399,24 @@ export class RoadTextureLoader {
           repeat: repeat ? `${repeat.x}x${repeat.y}` : 'none',
           src: loadedTexture.source?.data?.src || 'unknown',
         });
+
+        // Update any other textures waiting on this same resource
+        if (
+          this._pendingTextureUpdates &&
+          this._pendingTextureUpdates[cacheKey]
+        ) {
+          this._pendingTextureUpdates[cacheKey].forEach((pendingTexture) => {
+            pendingTexture.image = loadedTexture.image;
+            pendingTexture.source = loadedTexture.source;
+            pendingTexture.needsUpdate = true;
+          });
+
+          // Clean up
+          delete this._pendingTextureUpdates[cacheKey];
+        }
+
+        // Mark this texture as no longer pending
+        delete this._pendingLoads[cacheKey];
       },
       // Error handler after all variations fail - create fallback texture
       (error) => {
@@ -368,6 +434,23 @@ export class RoadTextureLoader {
 
         // Cache the fallback texture
         this.textureCache[cacheKey] = texture;
+
+        // Update any other textures waiting on this resource
+        if (
+          this._pendingTextureUpdates &&
+          this._pendingTextureUpdates[cacheKey]
+        ) {
+          this._pendingTextureUpdates[cacheKey].forEach((pendingTexture) => {
+            pendingTexture.image = canvas;
+            pendingTexture.needsUpdate = true;
+          });
+
+          // Clean up
+          delete this._pendingTextureUpdates[cacheKey];
+        }
+
+        // Mark this texture as no longer pending
+        delete this._pendingLoads[cacheKey];
 
         console.log('Created fallback texture for:', cacheKey);
       }
