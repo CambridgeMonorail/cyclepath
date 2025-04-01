@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoadNetwork } from '@cyclepath/road-system';
 
@@ -7,9 +7,52 @@ type PlayerProps = {
   position: { x: number; z: number };
   onMove: (pos: { x: number; z: number }) => void;
   roadNetwork: RoadNetwork;
+  onRotationChange?: (rotation: number) => void; // Add new prop to report rotation changes
 };
 
-export const Player = ({ position, onMove, roadNetwork }: PlayerProps) => {
+// New component for camera that follows the player
+export const PlayerCamera = ({
+  player,
+  followDistance = 5,
+  height = 2.5,
+  smoothness = 0.1,
+}: {
+  player: { position: { x: number; z: number }; rotation: number };
+  followDistance?: number;
+  height?: number;
+  smoothness?: number;
+}) => {
+  const { camera } = useThree();
+  const targetPosition = useRef(new THREE.Vector3());
+
+  useFrame(() => {
+    // Calculate the ideal camera position behind the player
+    const moveX = Math.sin(player.rotation);
+    const moveZ = Math.cos(player.rotation);
+
+    // Position camera behind player based on player's rotation
+    targetPosition.current.set(
+      player.position.x + moveX * followDistance,
+      height,
+      player.position.z + moveZ * followDistance
+    );
+
+    // Smoothly interpolate camera position
+    camera.position.lerp(targetPosition.current, smoothness);
+
+    // Make camera look at player position
+    camera.lookAt(player.position.x, 0.5, player.position.z);
+  });
+
+  return null;
+};
+
+export const Player = ({
+  position,
+  onMove,
+  roadNetwork,
+  onRotationChange,
+}: PlayerProps) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [rotation, setRotation] = useState(0);
   const [keys, setKeys] = useState({
@@ -51,6 +94,13 @@ export const Player = ({ position, onMove, roadNetwork }: PlayerProps) => {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  // Report rotation changes to parent component
+  useEffect(() => {
+    if (onRotationChange) {
+      onRotationChange(rotation);
+    }
+  }, [rotation, onRotationChange]);
 
   useFrame((state, delta) => {
     const speed = 5;

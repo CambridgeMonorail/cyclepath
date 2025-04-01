@@ -1,6 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls, Stats } from '@react-three/drei';
-import { Suspense, useRef, useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import {
   RoadNetworkComponent,
@@ -13,7 +13,7 @@ import {
 import ObstaclesGenerator from './ObstaclesGenerator';
 import SkyBox from './SkyBox';
 import Floor from './Floor';
-import Player from './Player';
+import Player, { PlayerCamera } from './Player';
 
 // Simplified WebGL context manager that leverages Three.js's built-in capabilities
 const WebGLContextManager = () => {
@@ -81,6 +81,7 @@ type GameSceneProps = {
 
 export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
+  const [playerRotation, setPlayerRotation] = useState(0);
 
   // Use the new square track layout instead of the test network
   const roadNetwork = useMemo(
@@ -134,7 +135,13 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   return (
     <div className="w-full h-screen" role="region" aria-label="Game Scene">
       <Canvas
-        camera={{ position: [0, 5, 10], fov: 50 }}
+        camera={{
+          // Configure the default camera - will be controlled by PlayerCamera during gameplay
+          position: [0, 5, 10],
+          fov: 50,
+          near: 0.1,
+          far: 1000,
+        }}
         gl={{
           // Recommended settings for Three.js performance
           powerPreference: 'high-performance',
@@ -177,14 +184,29 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
           )}
 
           {isPlaying && sceneReady && !debugMode && (
-            <Player
-              position={playerPosition}
-              onMove={setPlayerPosition}
-              roadNetwork={roadNetwork}
-            />
+            <>
+              <Player
+                position={playerPosition}
+                onMove={(newPos) => {
+                  setPlayerPosition(newPos);
+                }}
+                roadNetwork={roadNetwork}
+                onRotationChange={setPlayerRotation}
+              />
+              {/* Add the PlayerCamera component to follow the player */}
+              <PlayerCamera
+                player={{
+                  position: playerPosition,
+                  rotation: playerRotation,
+                }}
+                followDistance={7} // Adjust this value to control how far behind the player the camera is
+                height={3} // Adjust height for a nice viewing angle
+                smoothness={0.05} // Lower for more responsive, higher for smoother camera
+              />
+            </>
           )}
 
-          {/* Enable OrbitControls when not playing OR when in debug mode */}
+          {/* Enable OrbitControls only in debug mode */}
           <OrbitControls
             enabled={!isPlaying || debugMode}
             makeDefault
