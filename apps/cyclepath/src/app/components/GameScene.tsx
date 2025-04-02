@@ -6,7 +6,6 @@ import {
   Preload,
   AdaptiveDpr,
   PerformanceMonitor,
-  useGLTF,
 } from '@react-three/drei';
 import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
@@ -23,31 +22,10 @@ import SkyBox from './SkyBox';
 import Floor from './Floor';
 import Player, { PlayerCamera } from './Player';
 
-// Cache manager for texture and geometry optimization
-const CacheManager = () => {
-  useEffect(() => {
-    // Pre-warm the cache for frequently used geometries
-    const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const planeGeometry = new THREE.PlaneGeometry(1, 1);
-
-    // Add to Three.js cache
-    THREE.Cache.enabled = true;
-
-    return () => {
-      // Clean up geometries on unmount
-      boxGeometry.dispose();
-      planeGeometry.dispose();
-    };
-  }, []);
-
-  return null;
-};
-
-// Simplified WebGL context manager that leverages Three.js's built-in capabilities
+// Simplified WebGL context manager
 const WebGLContextManager = () => {
   const { gl } = useThree();
   const { registerRenderer } = useWebGLContextHandler();
-  const renderSettingsApplied = useRef(false);
 
   useEffect(() => {
     if (gl) {
@@ -55,60 +33,12 @@ const WebGLContextManager = () => {
       const cleanup = registerRenderer(gl);
 
       // Apply optimal renderer settings
-      if (!renderSettingsApplied.current) {
-        // In newer Three.js versions, physically correct lights is the default
-        // and useLegacyLights/physicallyCorrectLights properties were removed
-        // Set pixel ratio with performance in mind
-        gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 1;
-        renderSettingsApplied.current = true;
-      }
-
-      // Check WebGL support
-      const webGLSupport = checkWebGLSupport();
-      if (!webGLSupport.isSupported) {
-        console.warn('WebGL support issue:', webGLSupport.message);
-      }
-
-      // Monitor memory in development mode
-      if (process.env.NODE_ENV === 'development') {
-        const logMemoryInfo = () => {
-          if ('performance' in window && 'memory' in performance) {
-            const memoryInfo = (
-              performance as Performance & {
-                memory: {
-                  totalJSHeapSize: number;
-                  usedJSHeapSize: number;
-                  jsHeapSizeLimit: number;
-                };
-              }
-            ).memory;
-            console.log('Memory usage:', {
-              totalJSHeapSize: `${Math.round(
-                memoryInfo.totalJSHeapSize / (1024 * 1024)
-              )}MB`,
-              usedJSHeapSize: `${Math.round(
-                memoryInfo.usedJSHeapSize / (1024 * 1024)
-              )}MB`,
-              jsHeapSizeLimit: `${Math.round(
-                memoryInfo.jsHeapSizeLimit / (1024 * 1024)
-              )}MB`,
-            });
-          }
-        };
-
-        const intervalId = setInterval(logMemoryInfo, 30000);
-        return () => {
-          clearInterval(intervalId);
-          cleanup?.();
-        };
-      }
+      gl.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio
+      gl.toneMapping = THREE.ACESFilmicToneMapping;
+      gl.toneMappingExposure = 1;
 
       return cleanup;
     }
-
-    return undefined; // Explicitly return undefined when no cleanup is needed
   }, [gl, registerRenderer]);
 
   return null;
@@ -126,12 +56,7 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
     Math.PI + Math.PI / 2
   ); // Changed from Math.PI / 2 (east) to Math.PI + Math.PI / 2 (west) - 270 degrees
 
-  // Track the first frame after the game starts
-  const gameStartedRef = useRef(false);
-  const playerCameraRef = useRef<{ resetCamera: () => void } | null>(null);
-  const cameraInitializedRef = useRef(false);
-
-  // Use the new square track layout instead of the test network
+  // Use the square track layout
   const roadNetwork = useMemo(
     () => SimpleRoadBuilder.createSquareTrack(7, 8),
     []
@@ -141,11 +66,10 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [showPerformanceStats, setShowPerformanceStats] = useState(
     process.env.NODE_ENV === 'development'
   );
-  // Always initialize debug mode as false
   const [debugMode, setDebugMode] = useState(false);
 
-  // Performance adaptation state
-  const [dpr, setDpr] = useState(1.5); // Default DPR value instead of range
+  // Simple performance state
+  const [dpr, setDpr] = useState(1.5); // Default DPR value
   const [performanceMode, setPerformanceMode] = useState<
     'low' | 'medium' | 'high'
   >('high');
@@ -165,15 +89,13 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
     }
   }, [roadNetwork]);
 
-  // Toggle performance stats with 'P' key in development
-  // Toggle debug mode with 'D' key in development
+  // Toggle performance stats with 'P' key & debug mode with 'D' key in development
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       const handleKeyPress = (e: KeyboardEvent) => {
         if (e.key === 'p' || e.key === 'P') {
           setShowPerformanceStats((prev) => !prev);
         }
-        // Add debug mode toggle with 'D' key
         if (e.key === 'd' || e.key === 'D') {
           setDebugMode((prev) => !prev);
           console.log('Road debug mode:', !debugMode ? 'enabled' : 'disabled');
@@ -183,14 +105,14 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
       window.addEventListener('keydown', handleKeyPress);
       return () => window.removeEventListener('keydown', handleKeyPress);
     }
-    return undefined; // Explicitly return undefined for non-development environments
+    return undefined;
   }, [debugMode]);
 
   // Handle performance change
   const handlePerformanceChange = (factor: number) => {
     if (factor < 0.7) {
       setPerformanceMode('low');
-      setDpr(1.0); // Lower resolution
+      setDpr(1.0); // Lower resolution for low performance
     } else if (factor < 1) {
       setPerformanceMode('medium');
       setDpr(1.25); // Medium resolution
@@ -198,84 +120,47 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
       setPerformanceMode('high');
       setDpr(1.5); // Full resolution
     }
-    console.log(
-      `Performance mode: ${
-        factor < 0.7 ? 'low' : factor < 1 ? 'medium' : 'high'
-      }`
-    );
   };
-
-  // Handle game start - ensure camera is positioned correctly when game starts
-  useEffect(() => {
-    // Only attempt to position camera when all required conditions are met
-    const canInitializeCamera =
-      isPlaying &&
-      sceneReady &&
-      playerCameraRef.current &&
-      !cameraInitializedRef.current;
-
-    if (canInitializeCamera) {
-      // Add a small delay to ensure the PlayerCamera component is fully mounted and initialized
-      const timerId = setTimeout(() => {
-        if (playerCameraRef.current) {
-          console.log('Initializing camera position behind player');
-          playerCameraRef.current.resetCamera();
-          cameraInitializedRef.current = true;
-          gameStartedRef.current = true;
-        }
-      }, 100);
-
-      return () => clearTimeout(timerId);
-    }
-
-    // Reset the initialization flag when game stops
-    if (!isPlaying) {
-      gameStartedRef.current = false;
-      cameraInitializedRef.current = false;
-    }
-  }, [isPlaying, sceneReady, playerPosition, playerRotation]);
 
   return (
     <div className="w-full h-screen" role="region" aria-label="Game Scene">
       <Canvas
         camera={{
-          // Configure the default camera - will be controlled by PlayerCamera during gameplay
           position: [0, 5, 10],
           fov: 50,
           near: 0.1,
           far: 1000,
         }}
-        dpr={dpr} // Set DPR directly on Canvas
+        dpr={dpr}
         gl={{
-          // Recommended settings for Three.js performance
           powerPreference: 'high-performance',
           antialias: true,
           stencil: false,
           depth: true,
           alpha: false,
-          // Helps with context restoration
           preserveDrawingBuffer: true,
         }}
-        shadows={performanceMode !== 'low'} // Disable shadows in low performance mode
-        frameloop={performanceMode === 'low' ? 'demand' : 'always'} // Use demand frameloop in low performance mode
+        shadows={performanceMode !== 'low'}
+        frameloop="always"
       >
         <PerformanceMonitor
           onIncline={() => handlePerformanceChange(1)}
           onDecline={() => handlePerformanceChange(0.6)}
         />
-        <AdaptiveDpr pixelated /> {/* Remove the bounds prop */}
-        <CacheManager />
+        <AdaptiveDpr pixelated />
+
         <Suspense fallback={null}>
           <WebGLContextManager />
-          {/* Add the SkyBox component to create a background for the scene */}
-          <SkyBox size={1024} quality={performanceMode} />
-          {/* Add the Floor component to create a green ground plane */}
+
+          {/* SkyBox and Floor */}
+          <SkyBox size={1024} />
           <Floor
             color="#90C95B"
             size={1024}
             receiveShadow={performanceMode !== 'low'}
-            quality={performanceMode}
           />
+
+          {/* Lighting */}
           <ambientLight intensity={0.5} />
           <directionalLight
             position={[10, 10, 5]}
@@ -287,12 +172,14 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
             ]}
           />
 
+          {/* Road network */}
           <RoadNetworkComponent
             network={roadNetwork}
             onLoad={handleSceneLoaded}
             debug={debugMode}
           />
 
+          {/* Obstacles */}
           {sceneReady && (
             <ObstaclesGenerator
               count={performanceMode === 'low' ? 8 : 15}
@@ -302,6 +189,7 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
             />
           )}
 
+          {/* Player and Camera */}
           {isPlaying && sceneReady && !debugMode && (
             <>
               <Player
@@ -313,21 +201,19 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
                 onRotationChange={setPlayerRotation}
                 initialRotation={initialPlayerRotation}
               />
-              {/* Add the PlayerCamera component to follow the player */}
               <PlayerCamera
-                ref={playerCameraRef}
                 player={{
                   position: playerPosition,
-                  rotation: playerRotation,
+                  rotation: playerRotation || initialPlayerRotation,
                 }}
-                followDistance={12} // Increased from 7 to 12 for more distance behind the player
-                height={6} // Increased from 3 to 6 for higher elevation/better overview
-                smoothness={performanceMode === 'low' ? 0.02 : 0.05} // Less smooth in low performance mode for better response
+                followDistance={12}
+                height={6}
+                smoothness={performanceMode === 'low' ? 0.02 : 0.05}
               />
             </>
           )}
 
-          {/* Enable OrbitControls only in debug mode */}
+          {/* OrbitControls for debug mode */}
           <OrbitControls
             enabled={!isPlaying || debugMode}
             makeDefault
@@ -338,17 +224,18 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
             }
           />
 
-          {/* Show debug camera info when in debug mode */}
+          {/* Debug camera info */}
           {debugMode && <CameraDebugHelper />}
 
+          {/* Performance stats */}
           {showPerformanceStats && <Stats />}
 
-          {/* Preload common assets and textures */}
+          {/* Preload assets */}
           <Preload all />
         </Suspense>
       </Canvas>
 
-      {/* Add the standalone texture debugger outside of the Canvas */}
+      {/* Texture debugger */}
       <StandaloneTextureDebugger />
     </div>
   );
