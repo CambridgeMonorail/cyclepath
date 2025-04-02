@@ -111,79 +111,249 @@ const createCanvasTexture = (
       ctx.save();
 
       // For curves, we need to handle the orientation more carefully
-      // Default curve is a 90-degree turn from bottom to right (north to east)
+      // Default curve is a 90-degree turn from north to east
       const curveDirection = options?.curveDirection || 'right';
-
-      // Calculate start and end angles based on curve direction
-      // We use the standard trigonometric angle system where:
-      // - 0 radians points to the right (east)
-      // - -PI/2 radians points up (north)
-      // - -PI or PI radians points to the left (west)
-      // - PI/2 radians points down (south)
-      let startAngle = -Math.PI / 2; // Default start from bottom (north)
-      let endAngle = 0; // Default end at right (east)
-
-      if (curveDirection === 'left') {
-        startAngle = -Math.PI / 2; // Start from bottom (north)
-        endAngle = -Math.PI; // End at left (west)
-      }
 
       // Clear the entire canvas and set a transparent background
       ctx.clearRect(0, 0, size, size);
 
-      // Draw curved center line - solid yellow
+      // Enhanced debug visualization with more detailed grid and alignment markers
+      if (process.env.NODE_ENV === 'development') {
+        // Draw a light grid with labeled coordinates
+        ctx.strokeStyle = 'rgba(128, 128, 128, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+
+        // Create an enhanced grid
+        const gridStep = size / 10;
+        for (let i = 0; i <= 10; i++) {
+          const pos = i * gridStep;
+
+          // Vertical grid lines
+          ctx.beginPath();
+          ctx.moveTo(pos, 0);
+          ctx.lineTo(pos, size);
+          ctx.stroke();
+
+          // Horizontal grid lines
+          ctx.beginPath();
+          ctx.moveTo(0, pos);
+          ctx.lineTo(size, pos);
+          ctx.stroke();
+
+          // Add coordinate labels to edges
+          if (i % 2 === 0) {
+            // Mark percentage along edges
+            const percent = i * 10;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            // Bottom edge
+            ctx.fillText(`${percent}%`, pos, size - 2);
+            // Right edge
+            ctx.fillText(`${percent}%`, size - 2, pos);
+          }
+        }
+
+        // Draw stronger lines for the 50% mark (middle of each edge)
+        ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)';
+        ctx.lineWidth = 2;
+
+        // Vertical middle line
+        ctx.beginPath();
+        ctx.moveTo(size / 2, 0);
+        ctx.lineTo(size / 2, size);
+        ctx.stroke();
+
+        // Horizontal middle line
+        ctx.beginPath();
+        ctx.moveTo(0, size / 2);
+        ctx.lineTo(size, size / 2);
+        ctx.stroke();
+
+        // Draw tile boundaries
+        ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, size, size);
+
+        // Mark the midpoints of each edge with distinct colors
+        // Top edge midpoint (North)
+        ctx.fillStyle = 'rgba(0, 0, 255, 0.7)';
+        ctx.fillRect(size / 2 - 3, 0, 6, 6);
+
+        // Right edge midpoint (East)
+        ctx.fillStyle = 'rgba(255, 165, 0, 0.7)'; // Orange
+        ctx.fillRect(size - 6, size / 2 - 3, 6, 6);
+
+        // Bottom edge midpoint (South)
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.7)'; // Red
+        ctx.fillRect(size / 2 - 3, size - 6, 6, 6);
+
+        // Left edge midpoint (West)
+        ctx.fillStyle = 'rgba(0, 128, 0, 0.7)'; // Green
+        ctx.fillRect(0, size / 2 - 3, 6, 6);
+
+        // Mark the corners clearly
+        ctx.fillStyle = 'rgba(128, 0, 128, 0.7)'; // Purple
+        ctx.fillRect(0, 0, 6, 6); // Top-left
+        ctx.fillRect(size - 6, 0, 6, 6); // Top-right
+        ctx.fillRect(0, size - 6, 6, 6); // Bottom-left
+        ctx.fillRect(size - 6, size - 6, 6, 6); // Bottom-right
+      }
+
+      // Set up drawing parameters
+      ctx.lineWidth = size * 0.04; // Width of the center line
+      ctx.setLineDash([]); // Solid line for center
+
+      // For square tiles, the arc center must be at the corner
+      // For a right curve (north to east), the arc center is at bottom-left (0, size)
+      // For a left curve (north to west), the arc center is at bottom-right (size, size)
+      const centerX = curveDirection === 'right' ? 0 : size;
+      const centerY = size; // Bottom of the canvas
+
+      // For a perfect 90° curve connecting middle of bottom edge to middle of side edge,
+      // the radius must be exactly size/2
+      const radius = size / 2; // Curve size is calculated here to fit within the tile
+
+      // Calculate the start and end angles for the arc
+      const startAngle = -Math.PI / 2; // -90° (middle of bottom edge)
+      const endAngle = curveDirection === 'right' ? 0 : -Math.PI; // 0° (right) or -180° (left)
+
+      // Define the exact start and end points to validate arc placement
+      const startX = size / 2; // Middle of bottom edge
+      const startY = size; // Bottom edge
+      const endX = curveDirection === 'right' ? size : 0; // Middle of right or left edge
+      const endY = size / 2; // Middle height of canvas
+
+      // Draw curved guiding lines to help visualize the curve path
+      if (process.env.NODE_ENV === 'development') {
+        // Draw a transparent guide curve directly from start to end
+        ctx.strokeStyle = 'rgba(128, 128, 255, 0.1)';
+        ctx.lineWidth = size * 0.5; // Much wider than the actual line
+        ctx.beginPath();
+        ctx.arc(
+          centerX,
+          centerY,
+          radius,
+          startAngle,
+          endAngle,
+          curveDirection === 'left'
+        );
+        ctx.stroke();
+      }
+
+      // Draw the yellow center line
       ctx.strokeStyle = '#FFDD00';
       ctx.lineWidth = size * 0.04;
-      ctx.setLineDash([]); // Solid line
-
-      // Center point is at the corner of the curve
-      const cornerX = curveDirection === 'right' ? 0 : size;
-      const cornerY = size;
-      const radius = size * 0.9; // Main curve radius
-
-      // Draw the center line
       ctx.beginPath();
       ctx.arc(
-        cornerX,
-        cornerY,
+        centerX,
+        centerY,
         radius,
         startAngle,
         endAngle,
-        curveDirection === 'left'
+        curveDirection === 'left' // clockwise for left curve
       );
       ctx.stroke();
 
-      // Draw curved dashed lines - white
-      ctx.setLineDash([size * 0.1, size * 0.2]);
-      ctx.lineWidth = size * 0.025;
+      // Draw the white lane markings
       ctx.strokeStyle = '#FFFFFF';
+      ctx.setLineDash([size * 0.1, size * 0.2]); // Dashed line for lane markings
+      ctx.lineWidth = size * 0.025;
 
-      // Inner lane marking
+      // Inner lane marking (closer to center of curve)
+      const innerRadius = size * 0.35; // 70% of the center line radius
       ctx.beginPath();
       ctx.arc(
-        cornerX,
-        cornerY,
-        size * 0.7,
+        centerX,
+        centerY,
+        innerRadius,
         startAngle,
         endAngle,
         curveDirection === 'left'
       );
       ctx.stroke();
 
-      // Outer lane marking
+      // Outer lane marking (further from center of curve)
+      const outerRadius = size * 0.65; // 130% of the center line radius
       ctx.beginPath();
       ctx.arc(
-        cornerX,
-        cornerY,
-        size * 1.1,
+        centerX,
+        centerY,
+        outerRadius,
         startAngle,
         endAngle,
         curveDirection === 'left'
       );
       ctx.stroke();
+
+      // Enhanced debug visualization for curve paths
+      if (process.env.NODE_ENV === 'development') {
+        // Add highly visible start and end markers for the center line
+
+        // Start point at middle of bottom edge (typically red)
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.beginPath();
+        ctx.arc(startX, startY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // End point at middle of side edge (typically green)
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+        ctx.beginPath();
+        ctx.arc(endX, endY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Label the points
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillText('Start', startX, startY - 10);
+        ctx.fillText(
+          'End',
+          endX + (curveDirection === 'right' ? -20 : 20),
+          endY
+        );
+
+        // Add visual guides to verify the arc calculations
+        ctx.strokeStyle = 'rgba(255, 0, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+
+        // Draw a circle showing the arc radius
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Draw lines from center to start and end
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(startX, startY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // Add text with curve parameters
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.setLineDash([]);
+
+        // Display basic debug info
+        ctx.fillText(`Center: (${centerX}, ${centerY})`, size / 2, 15);
+        ctx.fillText(`Radius: ${radius}`, size / 2, 30);
+        ctx.fillText(`Direction: ${curveDirection}`, size / 2, 45);
+      }
 
       // Restore the canvas state
       ctx.restore();
+
       break;
     }
 
@@ -341,12 +511,13 @@ export type RoadTextures = {
 /**
  * Ensures a texture is properly configured with standard settings
  * This helps prevent inconsistent texture appearances across different surfaces
+ * @template T Type of the texture (Texture or CanvasTexture)
  */
-const ensureTextureConfig = (
-  texture: Texture | null,
+const ensureTextureConfig = <T extends Texture>(
+  texture: T | null,
   repeat?: Vector2,
   rotation?: number
-): Texture | null => {
+): T | null => {
   if (!texture) return null;
 
   // Set essential texture properties
@@ -390,28 +561,65 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
       DEFAULT_TEXTURE_OPTIONS[segment.type] ||
       defaultOptions;
 
-    console.log('Texture options for segment:', segment.id, textureOptions);
+    // Debug: Log segment dimensions
+    if (process.env.NODE_ENV === 'development') {
+      console.group(`Road Segment Details - ${segment.id} (${segment.type})`);
+      console.log('Segment Width:', segment.width);
+      console.log(
+        'Segment Length:',
+        segment.type === 'straight'
+          ? segment.length
+          : segment.radius * segment.angle
+      );
+      console.log('Segment Height:', segment.position.y);
+      console.log('Texture Options:', textureOptions);
+      console.groupEnd();
+    }
 
-    // Calculate repeat based on segment dimensions
+    // Calculate repeat based on segment dimensions - standardized approach for consistent textures
     let repeat = textureOptions.repeat ? textureOptions.repeat.clone() : null;
+
+    // Standardized approach for texture mapping - always use square textures
     if (!repeat) {
       if (segment.type === 'straight') {
-        // For straight segments, set repeat based on length
-        repeat = new Vector2(1, segment.length / 5);
+        // For straight segments, make textures square by using the width as the base unit
+        // This ensures a consistent look between straight and curve segments
+        const aspectRatio = segment.width / segment.length;
+        repeat = new Vector2(1, 1 / aspectRatio);
       } else if (segment.type === 'curve') {
-        // For curved segments, set repeat based on radius and angle
-        const arcLength = segment.radius * segment.angle;
-        repeat = new Vector2(1, arcLength / 5);
+        // For curved segments, we need to handle the arc length
+        // Use a standardized square mapping based on segment width
+        const curveSegment = segment as any; // TypeScript workaround for accessing radius and angle
+        const arcLength = curveSegment.radius * curveSegment.angle;
+
+        // Use a similar aspect ratio approach to ensure consistent square texture mapping
+        const aspectRatio = segment.width / arcLength;
+        repeat = new Vector2(1, 1 / aspectRatio);
+
+        // Add additional debug logging in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Curve segment ${segment.id} texture mapping:`);
+          console.log(`- Width: ${segment.width}, Arc Length: ${arcLength}`);
+          console.log(`- Aspect ratio: ${aspectRatio}`);
+          console.log(`- Repeat: x=${repeat.x}, y=${repeat.y}`);
+        }
       } else {
+        // For other segment types (intersections, junctions), use 1:1 mapping
         repeat = new Vector2(1, 1);
       }
+    }
+
+    // Ensure the repeat values are always positive and reasonable
+    if (repeat) {
+      repeat.x = Math.max(0.1, Math.min(10, repeat.x));
+      repeat.y = Math.max(0.1, Math.min(10, repeat.y));
     }
 
     // Create textures based on options
     let asphaltTexture = null;
     let normalMapTexture = null;
     let roughnessTexture = null;
-    let markingsTexture = null;
+    let markingsTexture: CanvasTexture | null = null;
 
     // Try to load from file first if path is provided
     if (textureOptions.roadTexture) {
@@ -503,19 +711,109 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
     if (segment.type === 'straight') {
       markingsTexture = createCanvasTexture('markings-straight', '#ffffff');
     } else if (segment.type === 'curve') {
-      // Determine curve direction based on segment properties
-      // In our road system, curves may have a 'direction' property in the segment
-      const direction = segment.direction === 'left' ? 'left' : 'right';
+      // Handle curve segment markings
+      const curveSegment = segment as RoadSegment & { tileDirection?: string };
+
+      // Get the curve direction based on segment properties
+      let curveDirection: 'left' | 'right' = 'right'; // Default to right curve
+
+      // Use the tileDirection property set by SimpleRoadBuilder if available
+      if (curveSegment.tileDirection) {
+        console.log(`Curve with tileDirection: ${curveSegment.tileDirection}`);
+
+        // Map the curve direction based on tile direction and segment rotation
+        // This is critical for properly orienting the curve textures
+        const rotDegrees =
+          ((((segment.rotation.y * 180) / Math.PI) % 360) + 360) % 360;
+
+        // Normalize rotation to 0-270 degrees (0, 90, 180, 270)
+        const normalizedRotation = (Math.round(rotDegrees / 90) * 90) % 360;
+        console.log(
+          `Curve rotation: ${rotDegrees.toFixed(
+            1
+          )}° (normalized: ${normalizedRotation}°)`
+        );
+
+        // Determine if this is a left or right curve based on the combination of
+        // tile direction and rotation
+        switch (curveSegment.tileDirection) {
+          case 'north':
+            curveDirection = 'right';
+            break;
+          case 'east':
+            curveDirection = 'right';
+            break;
+          case 'south':
+            curveDirection = 'right';
+            break;
+          case 'west':
+            curveDirection = 'right';
+            break;
+          default:
+            curveDirection = 'right';
+        }
+
+        console.log(`Determined curve direction: ${curveDirection}`);
+      }
 
       // Create the curve markings with the proper direction
       markingsTexture = createCanvasTexture('markings-curve', '#ffffff', 256, {
         rotation: textureOptions.rotation || 0,
-        curveDirection: direction,
+        curveDirection: curveDirection,
       });
+
+      // Debug information for curve texture dimensions
+      if (process.env.NODE_ENV === 'development') {
+        const textureSize = 256; // Canvas size used for marking textures
+        const curveArcLength = segment.radius * segment.angle;
+
+        console.group('Curve Texture Details');
+        console.log('Texture Canvas Size:', `${textureSize}x${textureSize}px`);
+        console.log('Curve Segment Width:', segment.width);
+        console.log('Curve Segment Radius:', segment.radius);
+        console.log(
+          'Curve Segment Angle:',
+          `${segment.angle} rad (${((segment.angle * 180) / Math.PI).toFixed(
+            1
+          )}°)`
+        );
+        console.log('Curve Arc Length:', curveArcLength);
+        console.log(
+          'Width to Arc Length Ratio:',
+          (segment.width / curveArcLength).toFixed(4)
+        );
+
+        // Calculate the area of the curve segment (approximately a quarter circle)
+        const curveArea =
+          (segment.angle / (2 * Math.PI)) *
+          Math.PI *
+          segment.radius *
+          segment.radius;
+        console.log('Curve Segment Area (approx):', curveArea.toFixed(2));
+
+        // Calculate texture coverage based on repeat settings
+        console.log(
+          'Texture Repeat Settings:',
+          repeat ? `${repeat.x}x${repeat.y}` : 'default (1x1)'
+        );
+        console.log(
+          'Effective Texture Size:',
+          repeat
+            ? `${textureSize / repeat.x}x${textureSize / repeat.y}`
+            : `${textureSize}x${textureSize}`
+        );
+
+        console.log('Rotation:', textureOptions.rotation || 0);
+        console.log('Curve Direction:', curveDirection);
+        console.groupEnd();
+      }
 
       // Set the center point for texture rotation to ensure markings align correctly
       if (markingsTexture) {
         markingsTexture.center.set(0.5, 0.5);
+
+        // Adjust the repeat settings to ensure the texture spans the entire tile
+        markingsTexture.repeat.set(1, 1); // Ensure full coverage of the square tile
       }
     } else if (segment.type === 'intersection') {
       markingsTexture = createCanvasTexture('markings-intersection', '#ffffff');
@@ -543,11 +841,15 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
       repeat,
       textureOptions.rotation
     );
-    markingsTexture = ensureTextureConfig(
-      markingsTexture as Texture,
-      repeat,
-      textureOptions.rotation
-    );
+
+    // For markingsTexture, we need to ensure it maintains its CanvasTexture type
+    if (markingsTexture) {
+      markingsTexture = ensureTextureConfig(
+        markingsTexture,
+        repeat,
+        textureOptions.rotation
+      ) as CanvasTexture;
+    }
 
     // CRITICAL: Force texture updates
     // This helps avoid a common React Three Fiber problem where textures don't update properly
@@ -570,7 +872,7 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
       map: asphaltTexture,
       normalMap: normalMapTexture,
       roughnessMap: roughnessTexture as CanvasTexture | Texture,
-      markingsMap: markingsTexture as CanvasTexture | null,
+      markingsMap: markingsTexture,
     };
 
     console.log(

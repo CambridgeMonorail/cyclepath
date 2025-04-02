@@ -116,6 +116,9 @@ export class SimpleRoadBuilder {
               rotation: rotationY, // Scalar value for Y-axis rotation
               width: layout.tileSize,
             });
+
+            // Store the original tile direction for proper texture orientation
+            (segment as any).tileDirection = tile.direction;
             break;
 
           case 'tjunction':

@@ -186,20 +186,25 @@ export function RoadSegmentMesh({
         // Get the curve-specific properties
         const curveSegment = segment as CurvedRoadSegment;
         const curveDirection = curveSegment.direction || 'right';
+        const tileDirection = (segment as any).tileDirection;
 
         // Always set the texture's rotation center to the middle
         markingsTexture.center.set(0.5, 0.5);
 
-        // Calculate texture rotation based on segment rotation and curve direction
-        // This is critical for proper alignment with adjoining straight sections
-        let textureRotation = segment.rotation.y;
+        // Calculate texture rotation based on segment rotation
+        const textureRotation = segment.rotation.y;
 
-        // For right curves, no additional adjustment is needed
-        // For left curves, we need an additional rotation to compensate for how they're drawn
-        if (curveDirection === 'left') {
-          // The specific adjustment needed depends on the segment's placement in the network
-          // This value was determined by testing different configurations
-          textureRotation += Math.PI;
+        // Log details about this curve segment for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Processing curve segment ${segment.id}:`);
+          console.log(
+            `- Segment rotation: ${(
+              (segment.rotation.y * 180) /
+              Math.PI
+            ).toFixed(1)}°`
+          );
+          console.log(`- Curve direction: ${curveDirection}`);
+          console.log(`- Tile direction: ${tileDirection || 'not specified'}`);
         }
 
         // Apply the calculated rotation to the texture
@@ -210,12 +215,7 @@ export function RoadSegmentMesh({
 
         if (process.env.NODE_ENV === 'development') {
           console.log(
-            `Curve segment ${
-              segment.id
-            } (${curveDirection}): segment rotation=${(
-              (segment.rotation.y * 180) /
-              Math.PI
-            ).toFixed(1)}°, texture rotation=${(
+            `Applied texture rotation: ${(
               (markingsTexture.rotation * 180) /
               Math.PI
             ).toFixed(1)}°`
@@ -224,6 +224,360 @@ export function RoadSegmentMesh({
       }
     }
   }, [segment, textures.markingsMap]);
+
+  // Log detailed geometry information for debugging curve segments
+  useEffect(() => {
+    // Only run in development mode and only for curve segments
+    if (
+      process.env.NODE_ENV === 'development' &&
+      segment.type === 'curve' &&
+      textures.markingsMap
+    ) {
+      console.group(`Curve Segment Geometry Debug - ${segment.id}`);
+      console.log(
+        `Segment dimensions: width=${segment.width}, length=${segment.length}`
+      );
+      console.log(
+        `Segment position: (${segment.position.x}, ${segment.position.y}, ${segment.position.z})`
+      );
+      console.log(
+        `Segment rotation: (${segment.rotation.x}, ${segment.rotation.y}, ${segment.rotation.z})`
+      );
+
+      // Log texture details
+      const markingsTexture = textures.markingsMap;
+      console.log(`Markings texture details:`);
+      console.log(
+        `- Center: (${markingsTexture.center.x}, ${markingsTexture.center.y})`
+      );
+      console.log(
+        `- Repeat: (${markingsTexture.repeat.x}, ${markingsTexture.repeat.y})`
+      );
+      console.log(
+        `- Rotation: ${((markingsTexture.rotation * 180) / Math.PI).toFixed(
+          1
+        )}°`
+      );
+
+      // Log curve-specific properties
+      const curveSegment = segment as CurvedRoadSegment;
+      console.log(`Curve type: ${curveSegment.direction || 'right'}`);
+      if ((segment as any).tileDirection) {
+        console.log(`Tile direction: ${(segment as any).tileDirection}`);
+      }
+
+      console.groupEnd();
+    }
+  }, [segment, textures.markingsMap]);
+
+  // Enhanced debug logging for curve texture mapping
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV === 'development' &&
+      segment.type === 'curve' &&
+      textures.markingsMap
+    ) {
+      console.group(`Curve Texture Mapping Debug - ${segment.id}`);
+
+      // Log segment properties
+      console.log(
+        `Segment dimensions: width=${segment.width}, length=${segment.length}`
+      );
+      console.log(
+        `Segment position: (${segment.position.x.toFixed(
+          2
+        )}, ${segment.position.y.toFixed(2)}, ${segment.position.z.toFixed(2)})`
+      );
+      console.log(
+        `Segment rotation: ${((segment.rotation.y * 180) / Math.PI).toFixed(
+          1
+        )}°`
+      );
+
+      // Log texture properties
+      const markingsTexture = textures.markingsMap;
+      console.log(`Texture properties:`);
+      console.log(
+        `- Size: ${markingsTexture.image.width}x${markingsTexture.image.height}`
+      );
+      console.log(
+        `- Center point: (${markingsTexture.center.x}, ${markingsTexture.center.y})`
+      );
+      console.log(
+        `- Rotation: ${((markingsTexture.rotation * 180) / Math.PI).toFixed(
+          1
+        )}°`
+      );
+      console.log(
+        `- Repeat: (${markingsTexture.repeat.x}, ${markingsTexture.repeat.y})`
+      );
+      console.log(`- Wrap: ${markingsTexture.wrapS}, ${markingsTexture.wrapT}`);
+
+      // Log curve-specific properties
+      if (segment.type === 'curve') {
+        const curveSegment = segment as CurvedRoadSegment;
+        console.log(`Curve properties:`);
+        console.log(`- Direction: ${curveSegment.direction || 'right'}`);
+        console.log(`- Radius: ${curveSegment.radius}`);
+        console.log(
+          `- Angle: ${((curveSegment.angle * 180) / Math.PI).toFixed(1)}°`
+        );
+        if ((segment as any).tileDirection) {
+          console.log(`- Tile direction: ${(segment as any).tileDirection}`);
+        }
+      }
+
+      console.groupEnd();
+    }
+  }, [segment, textures.markingsMap]);
+
+  // Add visual debug helpers for curve texture mapping
+  useEffect(() => {
+    if (!showDebug || !meshRef.current || segment.type !== 'curve') return;
+
+    // Only show texture debug visualization in development mode
+    if (process.env.NODE_ENV !== 'development') return;
+
+    const currentMesh = meshRef.current;
+    const debugObjects: THREE.Object3D[] = [];
+
+    // Create a grid to visualize texture coordinates on the surface
+    const segmentWidth = segment.width;
+    const segmentLength = segment.length;
+
+    // Calculate dimensions for a curved segment
+    const curveSegment = segment as CurvedRoadSegment;
+    const radius = curveSegment.radius;
+    const angle = curveSegment.angle;
+
+    // Create visual guides to show texture mapping boundaries
+    const textureGridSize = 5; // Number of texture grid divisions to show
+
+    // Create grid lines along the U direction (across width)
+    for (let i = 0; i <= textureGridSize; i++) {
+      const position = (i / textureGridSize) * segmentWidth - segmentWidth / 2;
+      const gridLineGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(position, 0.1, -segmentLength / 2),
+        new THREE.Vector3(position, 0.1, segmentLength / 2),
+      ]);
+
+      const gridLineMaterial = new THREE.LineBasicMaterial({
+        color: i === 0 || i === textureGridSize ? 0xff3366 : 0x33aaff,
+        linewidth: i === 0 || i === textureGridSize ? 2 : 1,
+        transparent: true,
+        opacity: 0.7,
+      });
+
+      const gridLine = new THREE.Line(gridLineGeometry, gridLineMaterial);
+      currentMesh.add(gridLine);
+      debugObjects.push(gridLine);
+
+      // Add label for texture U coordinate using CSS2DObject instead of Text
+      if (i % Math.ceil(textureGridSize / 5) === 0) {
+        const uCoord = (i / textureGridSize).toFixed(1);
+
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'debug-label';
+        labelDiv.textContent = `U: ${uCoord}`;
+        labelDiv.style.color = '#33aaff';
+        labelDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        labelDiv.style.padding = '2px 4px';
+        labelDiv.style.borderRadius = '2px';
+        labelDiv.style.fontSize = '10px';
+
+        const label = new CSS2DObject(labelDiv);
+        label.position.set(position, 0.15, -segmentLength / 2 + 0.2);
+        currentMesh.add(label);
+        debugObjects.push(label);
+      }
+    }
+
+    // Create grid lines along the V direction (along length)
+    for (let i = 0; i <= textureGridSize; i++) {
+      const position =
+        (i / textureGridSize) * segmentLength - segmentLength / 2;
+      const gridLineGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-segmentWidth / 2, 0.1, position),
+        new THREE.Vector3(segmentWidth / 2, 0.1, position),
+      ]);
+
+      const gridLineMaterial = new THREE.LineBasicMaterial({
+        color: i === 0 || i === textureGridSize ? 0xff3366 : 0x33aaff,
+        linewidth: i === 0 || i === textureGridSize ? 2 : 1,
+        transparent: true,
+        opacity: 0.7,
+      });
+
+      const gridLine = new THREE.Line(gridLineGeometry, gridLineMaterial);
+      currentMesh.add(gridLine);
+      debugObjects.push(gridLine);
+
+      // Add label for texture V coordinate using CSS2DObject
+      if (i % Math.ceil(textureGridSize / 5) === 0) {
+        const vCoord = (i / textureGridSize).toFixed(1);
+
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'debug-label';
+        labelDiv.textContent = `V: ${vCoord}`;
+        labelDiv.style.color = '#33aaff';
+        labelDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        labelDiv.style.padding = '2px 4px';
+        labelDiv.style.borderRadius = '2px';
+        labelDiv.style.fontSize = '10px';
+
+        const label = new CSS2DObject(labelDiv);
+        label.position.set(-segmentWidth / 2 + 0.2, 0.15, position);
+        currentMesh.add(label);
+        debugObjects.push(label);
+      }
+    }
+
+    // Add texture boundary outline (red) - this represents the actual texture boundaries
+    const outlineGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-segmentWidth / 2, 0.12, -segmentLength / 2),
+      new THREE.Vector3(segmentWidth / 2, 0.12, -segmentLength / 2),
+      new THREE.Vector3(segmentWidth / 2, 0.12, segmentLength / 2),
+      new THREE.Vector3(-segmentWidth / 2, 0.12, segmentLength / 2),
+      new THREE.Vector3(-segmentWidth / 2, 0.12, -segmentLength / 2),
+    ]);
+
+    const outlineMaterial = new THREE.LineBasicMaterial({
+      color: 0xff0000,
+      linewidth: 2,
+      transparent: true,
+      opacity: 0.8,
+    });
+
+    const outline = new THREE.Line(outlineGeometry, outlineMaterial);
+    currentMesh.add(outline);
+    debugObjects.push(outline);
+
+    // Add dimension labels using CSS2DObject
+    const widthLabelDiv = document.createElement('div');
+    widthLabelDiv.className = 'debug-label';
+    widthLabelDiv.textContent = `Width: ${segmentWidth.toFixed(1)}`;
+    widthLabelDiv.style.color = '#ff0000';
+    widthLabelDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    widthLabelDiv.style.padding = '2px 4px';
+    widthLabelDiv.style.borderRadius = '2px';
+    widthLabelDiv.style.fontSize = '12px';
+
+    const widthLabel = new CSS2DObject(widthLabelDiv);
+    widthLabel.position.set(0, 0.2, -segmentLength / 2 - 0.3);
+    currentMesh.add(widthLabel);
+    debugObjects.push(widthLabel);
+
+    const lengthLabelDiv = document.createElement('div');
+    lengthLabelDiv.className = 'debug-label';
+    lengthLabelDiv.textContent = `Length: ${segmentLength.toFixed(1)}`;
+    lengthLabelDiv.style.color = '#ff0000';
+    lengthLabelDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    lengthLabelDiv.style.padding = '2px 4px';
+    lengthLabelDiv.style.borderRadius = '2px';
+    lengthLabelDiv.style.fontSize = '12px';
+
+    const lengthLabel = new CSS2DObject(lengthLabelDiv);
+    lengthLabel.position.set(-segmentWidth / 2 - 0.3, 0.2, 0);
+    // We can't rotate CSS2DObject directly, so we'll create a group for it
+    const lengthLabelGroup = new THREE.Group();
+    lengthLabelGroup.add(lengthLabel);
+    lengthLabelGroup.rotation.y = Math.PI / 2;
+    currentMesh.add(lengthLabelGroup);
+    debugObjects.push(lengthLabelGroup);
+
+    // Add a marker for the texture center
+    const centerMarkerGeometry = new THREE.SphereGeometry(0.1);
+    const centerMarkerMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.8,
+    });
+    const centerMarker = new THREE.Mesh(
+      centerMarkerGeometry,
+      centerMarkerMaterial
+    );
+    centerMarker.position.set(0, 0.15, 0);
+    currentMesh.add(centerMarker);
+    debugObjects.push(centerMarker);
+
+    // Add a label for the center point using CSS2DObject
+    const centerLabelDiv = document.createElement('div');
+    centerLabelDiv.className = 'debug-label';
+    centerLabelDiv.textContent = `Texture Center`;
+    centerLabelDiv.style.color = '#ffff00';
+    centerLabelDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    centerLabelDiv.style.padding = '2px 4px';
+    centerLabelDiv.style.borderRadius = '2px';
+    centerLabelDiv.style.fontSize = '12px';
+
+    const centerLabel = new CSS2DObject(centerLabelDiv);
+    centerLabel.position.set(0, 0.3, 0);
+    currentMesh.add(centerLabel);
+    debugObjects.push(centerLabel);
+
+    // For curves, add arc measurements
+    if (segment.type === 'curve') {
+      // Add arc radius visualization
+      const radiusLineGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0.11, 0),
+        new THREE.Vector3(0, 0.11, radius),
+      ]);
+
+      const radiusLineMaterial = new THREE.LineBasicMaterial({
+        color: 0x00ff00,
+        linewidth: 1,
+        transparent: true,
+        opacity: 0.7,
+      });
+
+      const radiusLine = new THREE.Line(radiusLineGeometry, radiusLineMaterial);
+      currentMesh.add(radiusLine);
+      debugObjects.push(radiusLine);
+
+      // Label for radius using CSS2DObject
+      const radiusLabelDiv = document.createElement('div');
+      radiusLabelDiv.className = 'debug-label';
+      radiusLabelDiv.textContent = `Radius: ${radius.toFixed(1)}`;
+      radiusLabelDiv.style.color = '#00ff00';
+      radiusLabelDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+      radiusLabelDiv.style.padding = '2px 4px';
+      radiusLabelDiv.style.borderRadius = '2px';
+      radiusLabelDiv.style.fontSize = '12px';
+
+      const radiusLabel = new CSS2DObject(radiusLabelDiv);
+      radiusLabel.position.set(0, 0.25, radius / 2);
+      currentMesh.add(radiusLabel);
+      debugObjects.push(radiusLabel);
+
+      // Label for angle using CSS2DObject
+      const angleLabelDiv = document.createElement('div');
+      angleLabelDiv.className = 'debug-label';
+      angleLabelDiv.textContent = `Angle: ${((angle * 180) / Math.PI).toFixed(
+        1
+      )}°`;
+      angleLabelDiv.style.color = '#00ff00';
+      angleLabelDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+      angleLabelDiv.style.padding = '2px 4px';
+      angleLabelDiv.style.borderRadius = '2px';
+      angleLabelDiv.style.fontSize = '12px';
+
+      const angleLabel = new CSS2DObject(angleLabelDiv);
+      angleLabel.position.set(0, 0.25, -radius / 2);
+      currentMesh.add(angleLabel);
+      debugObjects.push(angleLabel);
+    }
+
+    // Cleanup function
+    return () => {
+      debugObjects.forEach((obj) => {
+        currentMesh.remove(obj);
+        if (obj instanceof THREE.Line || obj instanceof THREE.Mesh) {
+          obj.geometry.dispose();
+          (obj.material as THREE.Material).dispose();
+        }
+      });
+    };
+  }, [segment, showDebug, textures.markingsMap]);
 
   return (
     <>
