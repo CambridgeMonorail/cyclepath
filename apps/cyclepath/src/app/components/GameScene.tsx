@@ -83,8 +83,8 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, z: 0 });
   const [playerRotation, setPlayerRotation] = useState(0);
   const [initialPlayerRotation, setInitialPlayerRotation] = useState(
-    Math.PI / 2
-  ); // Default to East (π/2)
+    Math.PI + Math.PI / 2
+  ); // Changed from Math.PI / 2 (east) to Math.PI + Math.PI / 2 (west) - 270 degrees
 
   // Use the new square track layout instead of the test network
   const roadNetwork = useMemo(
@@ -203,9 +203,9 @@ export const GameScene = ({ isPlaying, onGameOver }: GameSceneProps) => {
                   position: playerPosition,
                   rotation: playerRotation,
                 }}
-                followDistance={7} // Adjust this value to control how far behind the player the camera is
-                height={3} // Adjust height for a nice viewing angle
-                smoothness={0.05} // Lower for more responsive, higher for smoother camera
+                followDistance={12} // Increased from 7 to 12 for more distance behind the player
+                height={6} // Increased from 3 to 6 for higher elevation/better overview
+                smoothness={0.05} // Maintained the same responsiveness
               />
             </>
           )}

@@ -6,7 +6,11 @@ import {
   Texture,
   SRGBColorSpace,
 } from 'three';
-import { RoadSegment, RoadTextureOptions } from '../types/road.types';
+import {
+  RoadSegment,
+  RoadTextureOptions,
+  CurvedRoadSegment,
+} from '../types/road.types';
 import { RoadTextureLoader } from './road-texture.utils';
 
 /**
@@ -260,8 +264,13 @@ const createCanvasTexture = (
       ctx.setLineDash([size * 0.1, size * 0.2]); // Dashed line for lane markings
       ctx.lineWidth = size * 0.025;
 
-      // Inner lane marking (closer to center of curve)
-      const innerRadius = size * 0.35; // 70% of the center line radius
+      // Calculate lane positions at 25% and 75% of the road width
+      // Road width is effectively represented by the distance from center to edge, which is size/2
+      // So inner lane should be 25% of size/2 from center, outer lane 75% of size/2 from center
+      const roadHalfWidth = size / 2;
+
+      // Inner lane marking (closer to center of curve) - positioned at 25% from center
+      const innerRadius = radius * 0.5; // 25% of the width from center (50% - 25% = 25% position)
       ctx.beginPath();
       ctx.arc(
         centerX,
@@ -273,8 +282,8 @@ const createCanvasTexture = (
       );
       ctx.stroke();
 
-      // Outer lane marking (further from center of curve)
-      const outerRadius = size * 0.65; // 130% of the center line radius
+      // Outer lane marking (further from center of curve) - positioned at 75% from center
+      const outerRadius = radius * 1.5; // 75% of the width from center (50% + 25% = 75% position)
       ctx.beginPath();
       ctx.arc(
         centerX,
@@ -318,37 +327,29 @@ const createCanvasTexture = (
           endY
         );
 
-        // Add visual guides to verify the arc calculations
-        ctx.strokeStyle = 'rgba(255, 0, 255, 0.5)';
+        // Add visual guides to show the lane positions
+        ctx.strokeStyle = 'rgba(255, 255, 0, 0.3)';
         ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
+        ctx.setLineDash([3, 3]);
 
-        // Draw a circle showing the arc radius
+        // Draw circles showing the lane positions
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Draw lines from center to start and end
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(startX, startY);
+        ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(endX, endY);
+        ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Add text with curve parameters
+        // Label the lane positions
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
         ctx.setLineDash([]);
 
-        // Display basic debug info
-        ctx.fillText(`Center: (${centerX}, ${centerY})`, size / 2, 15);
-        ctx.fillText(`Radius: ${radius}`, size / 2, 30);
-        ctx.fillText(`Direction: ${curveDirection}`, size / 2, 45);
+        // Display lane position info
+        ctx.fillText(`Inner lane: 25%`, size / 2, 60);
+        ctx.fillText(`Outer lane: 75%`, size / 2, 75);
       }
 
       // Restore the canvas state
@@ -565,12 +566,20 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
     if (process.env.NODE_ENV === 'development') {
       console.group(`Road Segment Details - ${segment.id} (${segment.type})`);
       console.log('Segment Width:', segment.width);
-      console.log(
-        'Segment Length:',
-        segment.type === 'straight'
-          ? segment.length
-          : segment.radius * segment.angle
-      );
+
+      // Use type-safe access for segment length calculation
+      if (segment.type === 'straight') {
+        console.log('Segment Length:', segment.length);
+      } else if (segment.type === 'curve') {
+        const curveSegment = segment as CurvedRoadSegment;
+        console.log(
+          'Segment Length:',
+          curveSegment.radius * curveSegment.angle
+        );
+      } else {
+        console.log('Segment Length:', segment.length);
+      }
+
       console.log('Segment Height:', segment.position.y);
       console.log('Texture Options:', textureOptions);
       console.groupEnd();
@@ -588,8 +597,8 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
         repeat = new Vector2(1, 1 / aspectRatio);
       } else if (segment.type === 'curve') {
         // For curved segments, we need to handle the arc length
-        // Use a standardized square mapping based on segment width
-        const curveSegment = segment as any; // TypeScript workaround for accessing radius and angle
+        // Type-safe access to curve-specific properties
+        const curveSegment = segment as CurvedRoadSegment;
         const arcLength = curveSegment.radius * curveSegment.angle;
 
         // Use a similar aspect ratio approach to ensure consistent square texture mapping
@@ -765,17 +774,20 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
       // Debug information for curve texture dimensions
       if (process.env.NODE_ENV === 'development') {
         const textureSize = 256; // Canvas size used for marking textures
-        const curveArcLength = segment.radius * segment.angle;
+        const typedCurveSegment = segment as CurvedRoadSegment;
+        const curveArcLength =
+          typedCurveSegment.radius * typedCurveSegment.angle;
 
         console.group('Curve Texture Details');
         console.log('Texture Canvas Size:', `${textureSize}x${textureSize}px`);
         console.log('Curve Segment Width:', segment.width);
-        console.log('Curve Segment Radius:', segment.radius);
+        console.log('Curve Segment Radius:', typedCurveSegment.radius);
         console.log(
           'Curve Segment Angle:',
-          `${segment.angle} rad (${((segment.angle * 180) / Math.PI).toFixed(
-            1
-          )}°)`
+          `${typedCurveSegment.angle} rad (${(
+            (typedCurveSegment.angle * 180) /
+            Math.PI
+          ).toFixed(1)}°)`
         );
         console.log('Curve Arc Length:', curveArcLength);
         console.log(
@@ -785,10 +797,10 @@ export const useRoadTextures = (segment: RoadSegment): RoadTextures => {
 
         // Calculate the area of the curve segment (approximately a quarter circle)
         const curveArea =
-          (segment.angle / (2 * Math.PI)) *
+          (typedCurveSegment.angle / (2 * Math.PI)) *
           Math.PI *
-          segment.radius *
-          segment.radius;
+          typedCurveSegment.radius *
+          typedCurveSegment.radius;
         console.log('Curve Segment Area (approx):', curveArea.toFixed(2));
 
         // Calculate texture coverage based on repeat settings
