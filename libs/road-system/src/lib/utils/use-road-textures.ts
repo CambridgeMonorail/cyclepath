@@ -267,7 +267,6 @@ const createCanvasTexture = (
       // Calculate lane positions at 25% and 75% of the road width
       // Road width is effectively represented by the distance from center to edge, which is size/2
       // So inner lane should be 25% of size/2 from center, outer lane 75% of size/2 from center
-      const roadHalfWidth = size / 2;
 
       // Inner lane marking (closer to center of curve) - positioned at 25% from center
       const innerRadius = radius * 0.5; // 25% of the width from center (50% - 25% = 25% position)

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { memo, useMemo } from 'react';
 
 type FloorProps = {
   /**
@@ -24,28 +25,56 @@ type FloorProps = {
    * @default true
    */
   receiveShadow?: boolean;
+
+  /**
+   * Quality level for the floor's material
+   * @default "high"
+   */
+  quality?: 'low' | 'medium' | 'high';
 };
 
 /**
  * A simple floor component that creates a flat ground surface for the game world.
  * By default, uses a light green color to represent grass.
+ *
+ * This component is memoized to prevent unnecessary re-renders.
  */
-const Floor = ({
-  color = '#8BC34A', // Default to light green
-  size = 2000,
-  position = [0, -0.1, 0], // Slightly below ground level to prevent z-fighting
-  receiveShadow = true,
-}: FloorProps) => {
-  return (
-    <mesh
-      position={position}
-      rotation={[-Math.PI / 2, 0, 0]} // Rotate to be flat on XZ plane
-      receiveShadow={receiveShadow}
-    >
-      <planeGeometry args={[size, size]} />
-      <meshStandardMaterial color={color} roughness={0.8} metalness={0.1} />
-    </mesh>
-  );
-};
+const Floor = memo(
+  ({
+    color = '#8BC34A', // Default to light green
+    size = 2000,
+    position = [0, -0.1, 0], // Slightly below ground level to prevent z-fighting
+    receiveShadow = true,
+    quality = 'high',
+  }: FloorProps) => {
+    // Create memoized material properties based on quality level
+    const materialProps = useMemo(() => {
+      return {
+        roughness: quality === 'low' ? 1.0 : quality === 'medium' ? 0.9 : 0.8,
+        metalness: quality === 'low' ? 0.0 : quality === 'medium' ? 0.05 : 0.1,
+        flatShading: quality === 'low',
+      };
+    }, [quality]);
+
+    // Optimize segment count based on quality
+    const segments = useMemo(() => {
+      return quality === 'low' ? 1 : quality === 'medium' ? 8 : 32;
+    }, [quality]);
+
+    return (
+      <mesh
+        position={position}
+        rotation={[-Math.PI / 2, 0, 0]} // Rotate to be flat on XZ plane
+        receiveShadow={receiveShadow}
+        frustumCulled={true} // Enable frustum culling for performance
+      >
+        <planeGeometry args={[size, size, segments, segments]} />
+        <meshStandardMaterial color={color} {...materialProps} />
+      </mesh>
+    );
+  }
+);
+
+Floor.displayName = 'Floor';
 
 export default Floor;
